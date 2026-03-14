@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  analytic-chart:
+    build: .
+    container_name: analytic_chart_app
+    ports:
+      - "3004:3004"
+    env_file:
+      - .env
+    environment:
+      - PORT=3004
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    restart: unless-stopped
+

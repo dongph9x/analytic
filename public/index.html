@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phân tích giá vàng & giá xăng dầu Việt Nam</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        background: radial-gradient(circle at top left, #0f172a, #020617 45%, #000 100%);
+        color: #e5e7eb;
+        min-height: 100vh;
+        display: flex;
+        align-items: stretch;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .app-shell {
+        width: 100%;
+        max-width: 1200px;
+        background: rgba(15, 23, 42, 0.96);
+        border-radius: 24px;
+        box-shadow:
+          0 24px 60px rgba(15, 23, 42, 0.8),
+          0 0 0 1px rgba(148, 163, 184, 0.08);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .main-panel {
+        flex: 1 1 auto;
+        min-height: 0;
+        padding: 24px 28px 24px 24px;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 18px;
+        gap: 16px;
+      }
+
+      .title-block {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .title {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .pill {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        color: #9ca3af;
+      }
+
+      .subtitle {
+        font-size: 12px;
+        color: #9ca3af;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .tag {
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        background: radial-gradient(circle at top, rgba(234, 179, 8, 0.18), rgba(15, 23, 42, 0.9));
+        color: #eab308;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .tag.dot::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: radial-gradient(circle at center, #22c55e, #166534);
+      }
+
+      .select-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: #9ca3af;
+      }
+
+      select {
+        background: rgba(15, 23, 42, 0.9);
+        border-radius: 999px;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        color: #e5e7eb;
+        padding: 4px 9px;
+        font-size: 11px;
+        outline: none;
+      }
+
+      .card {
+        background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.4), rgba(15, 23, 42, 0.96));
+        border-radius: 20px;
+        padding: 16px 18px 18px;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.6);
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .card-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: #e5e7eb;
+      }
+
+      .card-caption {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-top: 2px;
+      }
+      .card-caption.table-note {
+        margin-top: 4px;
+        color: #64748b;
+      }
+
+      .chip-group {
+        display: inline-flex;
+        padding: 2px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(55, 65, 81, 0.8);
+      }
+
+      .chip {
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        border: none;
+        outline: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: transparent;
+        color: #9ca3af;
+        cursor: pointer;
+        transition: all 0.18s ease;
+      }
+
+      .chip.active {
+        background: radial-gradient(circle at top, rgba(56, 189, 248, 0.36), rgba(15, 23, 42, 0.9));
+        color: #f9fafb;
+        font-weight: 500;
+        box-shadow:
+          0 0 0 1px rgba(59, 130, 246, 0.6),
+          0 8px 20px rgba(30, 64, 175, 0.8);
+      }
+
+      .chip-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+      }
+
+      .chip-dot.gold {
+        background: radial-gradient(circle at 30% 0%, #facc15, #a16207);
+      }
+
+      .chip-dot.ron95 {
+        background: radial-gradient(circle at 30% 0%, #22c55e, #15803d);
+      }
+
+      .chip-dot.do {
+        background: radial-gradient(circle at 30% 0%, #38bdf8, #0369a1);
+      }
+
+      .chart-wrapper {
+        position: relative;
+        margin-top: 4px;
+        height: 260px;
+      }
+
+      .chart-section {
+        margin-bottom: 24px;
+      }
+
+      .chart-section:last-of-type {
+        margin-bottom: 0;
+      }
+
+      .legend {
+        display: flex;
+        gap: 14px;
+        font-size: 11px;
+        color: #9ca3af;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+
+      .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .legend-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+      }
+
+      .legend-swatch.gold {
+        background: linear-gradient(135deg, #fbbf24, #a16207);
+      }
+
+      .legend-swatch.ron95 {
+        background: linear-gradient(135deg, #4ade80, #16a34a);
+      }
+
+      .legend-swatch.do {
+        background: linear-gradient(135deg, #38bdf8, #0284c7);
+      }
+
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .kpi-grid.kpi-single {
+        grid-template-columns: 1fr;
+        margin-top: 10px;
+      }
+
+      @media (max-width: 520px) {
+        .kpi-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .kpi-grid.kpi-single {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .kpi-card {
+        border-radius: 16px;
+        padding: 9px 10px 10px;
+        border: 1px solid rgba(55, 65, 81, 0.85);
+        background: radial-gradient(circle at top right, rgba(30, 64, 175, 0.24), rgba(15, 23, 42, 0.94));
+      }
+
+      .kpi-label {
+        font-size: 10px;
+        color: #9ca3af;
+        margin-bottom: 2px;
+      }
+
+      .kpi-value {
+        font-size: 15px;
+        font-weight: 600;
+        color: #f9fafb;
+      }
+
+      .kpi-sub {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-top: 2px;
+      }
+
+      .kpi-trend {
+        font-size: 11px;
+        margin-top: 4px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 7px;
+        border-radius: 999px;
+      }
+
+      .kpi-trend.up {
+        color: #22c55e;
+        background: rgba(22, 163, 74, 0.12);
+      }
+
+      .kpi-trend.down {
+        color: #f97316;
+        background: rgba(194, 65, 12, 0.18);
+      }
+
+      .analysis-title {
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 10px;
+      }
+
+      .analysis-body {
+        font-size: 12px;
+        color: #cbd5f5;
+        line-height: 1.6;
+        margin-bottom: 16px;
+      }
+
+      .analysis-body strong {
+        color: #e5e7eb;
+      }
+
+      .insight-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      .insight-item {
+        display: flex;
+        gap: 8px;
+        font-size: 12px;
+      }
+
+      .insight-dot {
+        margin-top: 4px;
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: radial-gradient(circle at center, #60a5fa, #1d4ed8);
+        flex-shrink: 0;
+      }
+
+      .insight-label {
+        color: #9ca3af;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 2px;
+      }
+
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .meta-card {
+        border-radius: 16px;
+        padding: 8px 10px;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        background: radial-gradient(circle at top left, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.9));
+        font-size: 11px;
+      }
+
+      .meta-label {
+        color: #9ca3af;
+        margin-bottom: 2px;
+      }
+
+      .meta-value {
+        color: #e5e7eb;
+      }
+
+      .footer {
+        margin-top: 16px;
+        font-size: 10px;
+        color: #6b7280;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .footer a {
+        color: #9ca3af;
+        text-decoration: none;
+      }
+
+      .btn-refresh {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        background: rgba(15, 23, 42, 0.9);
+        color: #94a3b8;
+        font-size: 12px;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+      }
+
+      .btn-refresh:hover {
+        color: #e2e8f0;
+        border-color: rgba(148, 163, 184, 0.6);
+        background: rgba(30, 41, 59, 0.9);
+      }
+
+      .btn-refresh:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn-refresh.loading .btn-refresh-icon {
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      .btn-refresh-icon {
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        margin-top: 8px;
+      }
+
+      .price-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+
+      .price-table th,
+      .price-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.8);
+      }
+
+      .price-table th {
+        color: #94a3b8;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 11px;
+      }
+      .price-table th .th-note {
+        display: block;
+        font-size: 10px;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: 0;
+        color: #64748b;
+        margin-top: 2px;
+      }
+
+      .price-table tbody tr:hover {
+        background: rgba(30, 41, 59, 0.5);
+      }
+
+      .price-table .price-cell {
+        font-weight: 600;
+        color: #f1f5f9;
+      }
+
+      .price-table .change-up {
+        color: #22c55e;
+      }
+
+      .price-table .change-down {
+        color: #f97316;
+      }
+
+      .price-table .unit-cell {
+        color: #94a3b8;
+        font-size: 12px;
+      }
+
+      .nav {
+        flex-shrink: 0;
+        display: flex;
+        gap: 4px;
+        padding: 12px 24px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.9);
+        background: rgba(15, 23, 42, 0.6);
+      }
+      .nav a {
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        color: #94a3b8;
+        text-decoration: none;
+        transition: color 0.15s, background 0.15s;
+      }
+      .nav a:hover { color: #e2e8f0; background: rgba(51, 65, 85, 0.6); }
+      .nav a.active { color: #f9fafb; background: rgba(59, 130, 246, 0.25); font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <nav class="nav">
+        <a href="index.html" class="active">Trang chủ</a>
+        <a href="news.html">Tin tức</a>
+        <a href="outlook.html">Nhận định</a>
+      </nav>
+      <main class="main-panel">
+        <header class="header">
+          <div class="title-block">
+            <div class="title">
+              Dashboard giá vàng & xăng dầu
+              <span class="pill">Việt Nam</span>
+            </div>
+            <div class="subtitle">
+              Giá từ nguồn chính thống (ChatGPT tổng hợp) · Hiển thị bảng
+            </div>
+          </div>
+          <div class="header-actions">
+            <button type="button" class="btn-refresh" id="btn-refresh" title="Lấy lại dữ liệu mới (bỏ qua cache)">
+              <span class="btn-refresh-icon">↻</span>
+              <span class="btn-refresh-text">Làm mới</span>
+            </button>
+            <div class="tag dot">Realtime-friendly</div>
+          </div>
+        </header>
+
+        <section class="card chart-section">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Bảng giá vàng & xăng dầu</div>
+              <div class="card-caption">Dữ liệu tổng hợp từ website chính thống · Cập nhật: <span id="last-update">--</span></div>
+              <div class="card-caption table-note">Biến động: % thay đổi so với giá phiên giao dịch trước (ngày trước đó).</div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="price-table" id="price-table">
+              <thead>
+                <tr>
+                  <th>Loại</th>
+                  <th>Mua vào</th>
+                  <th>Bán ra</th>
+                  <th>Đơn vị</th>
+                  <th>
+                    Biến động
+                    <span class="th-note">(so với phiên trước)</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="price-tbody">
+                <!-- filled by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+  </html>
+

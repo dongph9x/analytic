@@ -1,0 +1,19 @@
+{
+  "name": "analytic-chart-vn",
+  "version": "1.0.0",
+  "description": "Web chart phân tích giá vàng và giá xăng dầu tại Việt Nam",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "openai": "^4.52.0"
+  }
+}
+

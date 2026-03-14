@@ -1,0 +1,41 @@
+# Dependencies (cài lại trong container)
+node_modules/
+
+# Git
+.git/
+.gitignore
+
+# Environment (dùng env_file trong compose, không copy vào image)
+.env
+.env.*
+!.env.example
+
+# Logs & temp
+logs/
+tmp/
+temp/
+*.log
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test & coverage
+coverage/
+.nyc_output/
+*.test.js
+*.spec.js
+__tests__/
+
+# Docs & Docker (không cần trong image)
+README.md
+Dockerfile
+docker-compose*.yml
+.dockerignore
