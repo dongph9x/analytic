@@ -96,6 +96,12 @@ function renderTable() {
   const ron95Compare = getChangeAndPrev(rawData.fuelRON95.values);
   const doCompare = getChangeAndPrev(rawData.fuelDO.values);
 
+  const wg = rawData.worldGold;
+  const wgChange =
+    wg && wg.changePercent != null && !Number.isNaN(Number(wg.changePercent)) ? Number(wg.changePercent) : null;
+  const wgUnit =
+    wg && (wg.unit || wg.source) ? (wg.unit || 'USD/oz') + (wg.source ? ' · ' + wg.source : '') : 'USD/oz';
+
   const rows = [
     {
       name: 'Vàng nhẫn trơn 9999',
@@ -105,6 +111,15 @@ function renderTable() {
       change: goldCompare.change,
       prevValue: goldCompare.prevValue,
       currentValue: rawData.gold.current
+    },
+    {
+      name: 'Vàng thế giới (Spot)',
+      mua: wg && wg.currentBuy != null ? wg.currentBuy : null,
+      ban: wg && wg.currentSell != null ? wg.currentSell : null,
+      unit: wgUnit,
+      change: wgChange,
+      prevValue: null,
+      currentValue: wg && (wg.currentSell != null || wg.currentBuy != null) ? (wg.currentSell ?? wg.currentBuy) : null
     },
     {
       name: 'Xăng RON 95',
@@ -287,4 +302,34 @@ async function init() {
   }, BACKGROUND_INTERVAL_MS);
 }
 
-document.addEventListener('DOMContentLoaded', init);
+var TABLE_BLOCK_IDS = ['table-block-gold-fuel', 'table-block-interest', 'table-block-bank-rates', 'table-block-bank-loans'];
+
+function showTableCategory(value) {
+  var showId = 'table-block-' + value;
+  for (var i = 0; i < TABLE_BLOCK_IDS.length; i++) {
+    var el = document.getElementById(TABLE_BLOCK_IDS[i]);
+    if (el) {
+      el.style.display = el.id === showId ? 'block' : 'none';
+      el.classList.toggle('visible', el.id === showId);
+    }
+  }
+}
+
+function initCategoryDropdown() {
+  var categorySelect = document.getElementById('table-category');
+  if (!categorySelect) return;
+  showTableCategory(categorySelect.value);
+  categorySelect.addEventListener('change', function () {
+    showTableCategory(this.value);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function () {
+    initCategoryDropdown();
+    init();
+  });
+} else {
+  initCategoryDropdown();
+  init();
+}

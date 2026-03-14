@@ -21,6 +21,7 @@ const { getInterestRates } = require('./services/interestRatesService');
 const { getFengshuiRecommendation } = require('./services/fengshuiService');
 const { askChatGPT } = require('./services/qaService');
 const { fetchVietcombankRates } = require('./services/webgiaExchangeService');
+const { fetchWorldGoldSpot } = require('./services/worldGoldService');
 
 const app = express();
 const PORT = process.env.PORT || 3004;
@@ -33,6 +34,9 @@ const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
 /** Khi chạy từ dist/server.js thì public ở ../public; khi chạy server.ts ở root thì public ở ./public. */
 const isRunningFromDist = path.basename(__dirname) === 'dist';
 const publicDir = isRunningFromDist ? path.join(__dirname, '..', 'public') : path.join(__dirname, 'public');
+const dataDir = isRunningFromDist ? path.join(__dirname, '..', 'data') : path.join(__dirname, 'data');
+const NEWS_FILE = path.join(dataDir, 'news.json');
+const NEWS_JOB_INTERVAL_MS = 10 * 60 * 1000; // 10 phút
 
 /** Lấy IP client (ưu tiên X-Forwarded-For khi đứng sau proxy). */
 function getClientIp(req: Request): string {
@@ -61,11 +65,73 @@ function getLocationFromIp(ip: string): Promise<string> {
     .catch(() => '—');
 }
 
+const DISCORD_HEADERS = { 'Content-Type': 'application/json' };
+
+const NEWS_MAX_AGE_MS = 10 * 60 * 1000; // 10 phút
+
+/** Đọc tin tức từ file. Trả về { ok, content, latest_time } hoặc null. */
+function readNewsFromFile(): { ok: boolean; content: unknown; latest_time?: string } | null {
+  try {
+    if (!fs.existsSync(NEWS_FILE)) return null;
+    const raw = fs.readFileSync(NEWS_FILE, 'utf8');
+    const data = JSON.parse(raw) as { ok?: boolean; content?: unknown; latest_time?: string };
+    if (data && typeof data.ok === 'boolean' && data.content != null) {
+      return { ok: data.ok, content: data.content, latest_time: data.latest_time };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Kiểm tra dữ liệu tin tức đã quá 10 phút chưa (hoặc thiếu latest_time). */
+function isNewsStale(data: { latest_time?: string } | null, maxAgeMs = NEWS_MAX_AGE_MS): boolean {
+  if (!data || !data.latest_time) return true;
+  const t = new Date(data.latest_time).getTime();
+  if (Number.isNaN(t)) return true;
+  return Date.now() - t > maxAgeMs;
+}
+
+/** Ghi kết quả tin tức ra file (kèm latest_time). */
+function writeNewsToFile(result: { ok: boolean; content: unknown }): void {
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    const toWrite = { ...result, latest_time: new Date().toISOString() };
+    fs.writeFileSync(NEWS_FILE, JSON.stringify(toWrite, null, 2), 'utf8');
+    console.log('Tin tức đã lưu vào file:', NEWS_FILE);
+  } catch (err) {
+    console.warn('Ghi file tin tức lỗi:', (err as Error).message);
+  }
+}
+
+/** Job nền: gọi ChatGPT lấy tin mới, nếu có dữ liệu thì ghi đè file. */
+async function runNewsJob(): Promise<void> {
+  try {
+    const result = await getNewsContent(true);
+    if (result && result.ok && result.content) {
+      writeNewsToFile(result);
+    }
+  } catch (err) {
+    console.warn('Job tin tức lỗi:', (err as Error).message);
+  }
+}
+
+function onDiscordFail(err: Error & { response?: { status?: number } }): void {
+  const status = err.response?.status;
+  if (status === 401) {
+    console.warn('Discord webhook thất bại (401). Tạo webhook mới trong Discord (Cài đặt kênh → Tích hợp → Webhook) và cập nhật DISCORD_WEBHOOK_URL trong .env');
+  } else if (status) {
+    console.warn('Discord webhook thất bại:', status, err.message);
+  }
+}
+
 function notifyDiscord(message: string): void {
   if (!DISCORD_WEBHOOK_URL || !DISCORD_WEBHOOK_URL.trim()) return;
+  const url = DISCORD_WEBHOOK_URL.trim();
+  console.log('Discord webhook: gửi tin');
   axios
-    .post(DISCORD_WEBHOOK_URL.trim(), { content: message }, { timeout: 5000 })
-    .catch((err: Error) => console.warn('Discord webhook:', err.message));
+    .post(url, { content: message }, { timeout: 5000, headers: DISCORD_HEADERS })
+    .catch(onDiscordFail);
 }
 
 interface PricesData {
@@ -73,6 +139,7 @@ interface PricesData {
   gold: { label: string; unit: string; values: number[]; current: number | null; currentSell?: number | null };
   fuelRON95: { label: string; unit: string; values: number[]; current: number | null };
   fuelDO: { label: string; unit: string; values: number[]; current: number | null };
+  worldGold?: { currentBuy: number | null; currentSell: number | null; changePercent?: number | null; unit: string; source?: string };
   interestRates?: unknown;
   lastUpdate: string;
   source?: string;
@@ -114,9 +181,10 @@ function notifyDiscordPrices(data: PricesData): void {
       });
     }
     const msg = lines.join('\n');
+    console.log('Discord webhook: gửi tin giá/lãi suất');
     axios
-      .post(DISCORD_WEBHOOK_URL.trim(), { content: msg.slice(0, 2000) }, { timeout: 5000 })
-      .catch((err: Error) => console.warn('Discord webhook (prices):', err.message));
+      .post(DISCORD_WEBHOOK_URL.trim(), { content: msg.slice(0, 2000) }, { timeout: 5000, headers: DISCORD_HEADERS })
+      .catch(onDiscordFail);
   } catch (err) {
     console.warn('notifyDiscordPrices:', (err as Error).message);
   }
@@ -215,9 +283,10 @@ app.get('/api/auth/check', (req: Request, res: Response) => {
 
 async function getCurrentPricesFromCrawl(): Promise<PricesData> {
   const labels = getLast30DayLabels();
-  const [pvoilData, kimTaiNgocGold] = await Promise.all([
+  const [pvoilData, kimTaiNgocGold, worldGold] = await Promise.all([
     fetchPvoilFuelTable(),
-    fetchKimTaiNgocGold()
+    fetchKimTaiNgocGold(),
+    fetchWorldGoldSpot()
   ]);
   const ron95 = (pvoilData?.ron95 ?? 0) > minFuelValid ? (pvoilData?.ron95 ?? 25) : 25.0;
   const doPrice = (pvoilData?.do ?? 0) > minFuelValid ? (pvoilData?.do ?? 21.5) : 21.5;
@@ -248,6 +317,7 @@ async function getCurrentPricesFromCrawl(): Promise<PricesData> {
       values: build30Values(doPrice, 21.5),
       current: doPrice
     },
+    worldGold: worldGold && (worldGold.currentBuy != null || worldGold.currentSell != null) ? { currentBuy: worldGold.currentBuy ?? null, currentSell: worldGold.currentSell ?? null, changePercent: worldGold.changePercent ?? null, unit: worldGold.unit || 'USD/oz', source: worldGold.source } : undefined,
     interestRates: interestRates || null,
     lastUpdate: new Date().toISOString(),
     source: 'crawl'
@@ -291,6 +361,10 @@ async function getPricesData(forceRefresh = false): Promise<PricesData> {
         } catch (_) {
           (chatGPTData as PricesData).interestRates = null;
         }
+        try {
+          const wg = await fetchWorldGoldSpot();
+          if (wg && (wg.currentBuy != null || wg.currentSell != null)) (chatGPTData as PricesData).worldGold = { currentBuy: wg.currentBuy ?? null, currentSell: wg.currentSell ?? null, changePercent: wg.changePercent ?? null, unit: wg.unit || 'USD/oz', source: wg.source };
+        } catch (_) {}
         cache.data = chatGPTData as PricesData;
         cache.timestamp = now;
         return chatGPTData as PricesData;
@@ -298,9 +372,10 @@ async function getPricesData(forceRefresh = false): Promise<PricesData> {
       console.log('ChatGPT unavailable, falling back to crawl...');
     }
 
-    const [currentGold, currentFuelRaw] = await Promise.all([
+    const [currentGold, currentFuelRaw, worldGold] = await Promise.all([
       crawlGoldPrice(),
-      crawlFuelPrice()
+      crawlFuelPrice(),
+      fetchWorldGoldSpot()
     ]);
     const currentFuel = {
       ron95: (currentFuelRaw?.ron95 ?? 0) > minFuelValid ? (currentFuelRaw?.ron95 ?? 25) : 25.0,
@@ -327,6 +402,7 @@ async function getPricesData(forceRefresh = false): Promise<PricesData> {
         values: build30Values(currentFuel.do, 21.5),
         current: currentFuel.do
       },
+      worldGold: worldGold && (worldGold.currentBuy != null || worldGold.currentSell != null) ? { currentBuy: worldGold.currentBuy ?? null, currentSell: worldGold.currentSell ?? null, changePercent: worldGold.changePercent ?? null, unit: worldGold.unit || 'USD/oz', source: worldGold.source } : undefined,
       lastUpdate: new Date().toISOString()
     };
     try {
@@ -385,9 +461,8 @@ app.get('/api/prices', requireApiAuth, async (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
     const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
-    const notifyDiscord = req.query.notify_discord === '1' || req.query.notify_discord === 'true';
     const data = await getPricesData(forceRefresh);
-    if (notifyDiscord) notifyDiscordPrices(data);
+    notifyDiscordPrices(data);
     res.json(data);
   } catch (error) {
     console.error('Error in /api/prices:', error);
@@ -396,7 +471,7 @@ app.get('/api/prices', requireApiAuth, async (req: Request, res: Response) => {
 });
 
 app.get('/api/news', requireApiAuth, async (req: Request, res: Response) => {
-  const useStream = req.query.stream !== '0';
+  const useStream = req.query.stream === '1';
   if (useStream) {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
@@ -411,9 +486,16 @@ app.get('/api/news', requireApiAuth, async (req: Request, res: Response) => {
     return;
   }
   try {
-    const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
-    const result = await getNewsContent(forceRefresh);
-    res.json(result);
+    let fromFile = readNewsFromFile();
+    if (fromFile && !isNewsStale(fromFile)) {
+      return res.json(fromFile);
+    }
+    await runNewsJob();
+    fromFile = readNewsFromFile();
+    if (fromFile) return res.json(fromFile);
+    const result = await getNewsContent(false);
+    if (result && result.ok && result.content) writeNewsToFile(result);
+    res.json(result || { ok: false, error: 'Không có dữ liệu tin tức', content: null });
   } catch (error) {
     console.error('Error in /api/news:', error);
     res.status(500).json({ ok: false, error: (error as Error).message, content: null });
@@ -536,4 +618,8 @@ app.listen(PORT, () => {
   if (API_AUTH_PASSWORD && API_AUTH_PASSWORD.trim()) {
     console.log('API auth enabled: API_AUTH_PASSWORD is set. Gọi API sẽ yêu cầu nhập mật khẩu.');
   }
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  setTimeout(() => runNewsJob(), 8000);
+  setInterval(runNewsJob, NEWS_JOB_INTERVAL_MS);
+  console.log('Job tin tức: chạy sau 8s, sau đó mỗi 10 phút.');
 });

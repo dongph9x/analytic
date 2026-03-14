@@ -1,0 +1,93 @@
+{
+  "ok": true,
+  "content": {
+    "sections": [
+      {
+        "title": "Chính sách lãi suất",
+        "items": [
+          {
+            "text": "Thị trường đang mất dần hy vọng vào việc cắt giảm lãi suất của Fed khi giá năng lượng và lo ngại về lạm phát gia tăng.",
+            "sourceName": "CNBC",
+            "sourceUrl": "https://www.cnbc.com/2026/03/12/markets-hopes-for-fed-interest-rate-cuts-are-rapidly-fading-away.html"
+          },
+          {
+            "text": "Cuộc họp của Fed vào tháng 1 đã giữ lãi suất ổn định, nhưng áp lực từ các nhà lãnh đạo chính trị đang gia tăng.",
+            "sourceName": "Business Insider",
+            "sourceUrl": "https://www.businessinsider.com/fed-meeting-january-interest-rates-jerome-powell-live-updates-2026-01"
+          },
+          {
+            "text": "Fed sẽ công bố quyết định lãi suất tiếp theo vào ngày 28 tháng 1 trong bối cảnh nhiều biến động chính trị và pháp lý.",
+            "sourceName": "CBS News",
+            "sourceUrl": "https://www.cbsnews.com/news/federal-reserve-fomc-meeting-january-28-interest-rate-decision-jerome-powell/"
+          }
+        ]
+      },
+      {
+        "title": "Lạm phát",
+        "items": [
+          {
+            "text": "Chỉ số giá tiêu dùng đã tăng 2.4% trong tháng 2 năm 2026, cao hơn mục tiêu của các nhà hoạch định chính sách.",
+            "sourceName": "CNBC",
+            "sourceUrl": "https://www.cnbc.com/2026/03/11/cpi-inflation-february-2026-breakdown.html"
+          },
+          {
+            "text": "Lạm phát của Mỹ giữ ổn định ở mức 2.4% trong tháng 2, theo dữ liệu mới nhất từ chỉ số giá tiêu dùng.",
+            "sourceName": "Business Insider",
+            "sourceUrl": "https://www.businessinsider.com/cpi-inflation-february-consumer-price-index-2026-3"
+          },
+          {
+            "text": "Giá tiêu dùng của Mỹ đã tăng nhẹ trong tháng 2 khi giá thuê nhà và xăng dầu tiếp tục tăng.",
+            "sourceName": "Reuters",
+            "sourceUrl": "https://www.reuters.com/business/us-consumer-prices-increase-expected-february-2026-03-11/"
+          }
+        ]
+      },
+      {
+        "title": "Xung đột địa chính trị",
+        "items": [
+          {
+            "text": "Cuộc chiến ở Iran đã làm phức tạp bức tranh lạm phát và ảnh hưởng đến giá năng lượng toàn cầu.",
+            "sourceName": "CNBC",
+            "sourceUrl": "https://www.cnbc.com/2026/03/11/cpi-inflation-february-2026-breakdown.html"
+          },
+          {
+            "text": "OPEC đã xác nhận việc tăng sản lượng dầu của Ả Rập Xê Út trước khi xảy ra xung đột với Iran.",
+            "sourceName": "Reuters",
+            "sourceUrl": "https://www.reuters.com/business/energy/opec-confirms-big-saudi-oil-production-hike-ahead-iran-war-holds-forecasts-2026-03-11/"
+          }
+        ]
+      },
+      {
+        "title": "OPEC",
+        "items": [
+          {
+            "text": "OPEC đã tăng sản lượng dầu thô trong tháng trước do tình hình căng thẳng gia tăng ở Trung Đông.",
+            "sourceName": "Bloomberg.com",
+            "sourceUrl": "https://www.bloomberg.com/news/articles/2026-03-13/opec-oil-output-rose-ahead-of-iran-war-on-saudi-boost-survey-shows"
+          },
+          {
+            "text": "OPEC Plus đã quyết định tăng sản lượng dầu để đối phó với nguy cơ giá cả tăng cao do xung đột với Iran.",
+            "sourceName": "The New York Times",
+            "sourceUrl": "https://www.nytimes.com/2026/03/01/world/middleeast/opec-plus-oil-production-prices.html"
+          }
+        ]
+      },
+      {
+        "title": "Tình hình USD",
+        "items": [
+          {
+            "text": "Giá trị của đồng đô la Mỹ đang biến động và có thể ảnh hưởng đến danh mục đầu tư của bạn.",
+            "sourceName": "U.S. Bank",
+            "sourceUrl": "https://www.usbank.com/investing/financial-perspectives/market-news/the-recovering-value-of-the-us-dollar.html"
+          },
+          {
+            "text": "Đồng đô la Mỹ giữ vai trò quan trọng trong nền kinh tế toàn cầu và ảnh hưởng đến các giao dịch quốc tế.",
+            "sourceName": "Federal Reserve Board (.gov)",
+            "sourceUrl": "https://www.federalreserve.gov/econres/notes/feds-notes/the-international-role-of-the-u-s-dollar-2025-edition-20250718.html"
+          }
+        ]
+      }
+    ]
+  },
+  "latest_time": "2026-03-14T14:41:36.685Z"
+}

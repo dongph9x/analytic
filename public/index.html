@@ -539,6 +539,29 @@
       }
       .nav a:hover { color: #e2e8f0; background: rgba(51, 65, 85, 0.6); }
       .nav a.active { color: #f9fafb; background: rgba(59, 130, 246, 0.25); font-weight: 500; }
+
+      .category-dropdown-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .category-dropdown-wrap label {
+        font-size: 12px;
+        color: #94a3b8;
+        white-space: nowrap;
+      }
+      .category-dropdown-wrap select {
+        min-width: 220px;
+        padding: 8px 12px;
+        font-size: 13px;
+      }
+      .table-block {
+        display: none;
+      }
+      .table-block.visible {
+        display: block;
+      }
     </style>
   </head>
   <body>
@@ -573,6 +596,17 @@
           </div>
         </header>
 
+        <div class="category-dropdown-wrap">
+          <label for="table-category">Danh mục:</label>
+          <select id="table-category" aria-label="Chọn bảng hiển thị">
+            <option value="gold-fuel" selected>Vàng & xăng dầu</option>
+            <option value="interest">Lãi suất VN & FED</option>
+            <option value="bank-rates">Lãi suất tiết kiệm (theo ngân hàng)</option>
+            <option value="bank-loans">Lãi suất vay vốn (theo ngân hàng)</option>
+          </select>
+        </div>
+
+        <div id="table-block-gold-fuel" class="table-block visible" data-table-category="gold-fuel">
         <section class="card chart-section">
           <div class="card-header">
             <div>
@@ -601,7 +635,9 @@
             </table>
           </div>
         </section>
+        </div>
 
+        <div id="table-block-interest" class="table-block" data-table-category="interest">
         <section class="card chart-section">
           <div class="card-header">
             <div>
@@ -624,7 +660,9 @@
             </table>
           </div>
         </section>
+        </div>
 
+        <div id="table-block-bank-rates" class="table-block" data-table-category="bank-rates">
         <section class="card chart-section">
           <div class="card-header">
             <div>
@@ -649,7 +687,9 @@
             </table>
           </div>
         </section>
+        </div>
 
+        <div id="table-block-bank-loans" class="table-block" data-table-category="bank-loans">
         <section class="card chart-section">
           <div class="card-header">
             <div>
@@ -673,6 +713,7 @@
             </table>
           </div>
         </section>
+        </div>
       </main>
     </div>
 

@@ -83,6 +83,17 @@
         border-radius: 999px;
         background: rgba(96, 165, 250, 0.9);
       }
+      .news-section .item-source {
+        display: inline-block;
+        margin-top: 4px;
+        font-size: 11px;
+        color: #60a5fa;
+      }
+      .news-section .item-source a {
+        color: #60a5fa;
+        text-decoration: none;
+      }
+      .news-section .item-source a:hover { text-decoration: underline; color: #93c5fd; }
       .stream-raw { white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.6; color: #cbd5e1; min-height: 80px; }
       .stream-content h2 { font-size: 15px; color: #e5e7eb; margin: 16px 0 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(51, 65, 85, 0.8); }
       .stream-content h2:first-child { margin-top: 0; }
@@ -102,6 +113,49 @@
       }
       .btn-refresh:hover { color: #e2e8f0; border-color: rgba(148, 163, 184, 0.6); background: rgba(30, 41, 59, 0.9); }
       .btn-refresh:disabled { opacity: 0.6; cursor: not-allowed; }
+      .sources-wrap {
+        margin-top: 28px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(51, 65, 85, 0.8);
+      }
+      .sources-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #94a3b8;
+        margin-bottom: 12px;
+        letter-spacing: 0.02em;
+      }
+      .sources-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px 20px;
+      }
+      @media (max-width: 640px) { .sources-grid { grid-template-columns: 1fr; } }
+      .sources-group h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: #cbd5e1;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+      }
+      .sources-group ul { list-style: none; padding: 0; margin: 0; }
+      .sources-group li { margin-bottom: 6px; }
+      .sources-group a {
+        font-size: 13px;
+        color: #60a5fa;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .sources-group a:hover { text-decoration: underline; color: #93c5fd; }
+      .sources-group a::after {
+        content: '';
+        width: 12px;
+        height: 12px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14'/%3E%3C/svg%3E") center/contain no-repeat;
+        opacity: 0.7;
+      }
     </style>
   </head>
   <body>
@@ -118,12 +172,41 @@
       </nav>
       <main class="main">
         <h1 class="page-title">Tin tức toàn cầu ảnh hưởng giá vàng, xăng, dầu</h1>
-        <p class="page-caption">Tổng hợp tin gần đây từ ChatGPT · Cập nhật theo giờ</p>
+        <p class="page-caption">Tổng hợp tin từ ChatGPT · Mỗi tin kèm nguồn tham khảo. Cấu hình SERPER_API_KEY để có link bài gốc.</p>
         <div id="content-root">
           <div class="content-loading">Đang tải...</div>
         </div>
         <div class="footer-meta">
           <button type="button" class="btn-refresh" id="btn-refresh">Làm mới</button>
+        </div>
+        <div class="sources-wrap">
+          <p class="sources-title">Đọc thêm từ trang tin uy tín (trong và ngoài nước)</p>
+          <div class="sources-grid">
+            <div class="sources-group">
+              <h4>Trong nước</h4>
+              <ul>
+                <li><a href="https://vnexpress.net/kinh-doanh" target="_blank" rel="noopener noreferrer">VnExpress Kinh doanh</a></li>
+                <li><a href="https://cafef.vn/" target="_blank" rel="noopener noreferrer">CafeF</a></li>
+                <li><a href="https://thanhnien.vn/kinh-te/" target="_blank" rel="noopener noreferrer">Thanh Niên Kinh tế</a></li>
+                <li><a href="https://www.vietnamplus.vn/kinh-te/" target="_blank" rel="noopener noreferrer">VietnamPlus Kinh tế</a></li>
+                <li><a href="https://tuoitre.vn/kinh-te.htm" target="_blank" rel="noopener noreferrer">Tuổi Trẻ Kinh tế</a></li>
+                <li><a href="https://baodautu.vn/" target="_blank" rel="noopener noreferrer">Báo Đầu tư</a></li>
+                <li><a href="https://vietstock.vn/" target="_blank" rel="noopener noreferrer">Vietstock</a></li>
+              </ul>
+            </div>
+            <div class="sources-group">
+              <h4>Quốc tế</h4>
+              <ul>
+                <li><a href="https://www.reuters.com/markets/" target="_blank" rel="noopener noreferrer">Reuters Markets</a></li>
+                <li><a href="https://www.bloomberg.com/" target="_blank" rel="noopener noreferrer">Bloomberg</a></li>
+                <li><a href="https://www.cnbc.com/" target="_blank" rel="noopener noreferrer">CNBC</a></li>
+                <li><a href="https://www.ft.com/" target="_blank" rel="noopener noreferrer">Financial Times</a></li>
+                <li><a href="https://www.bbc.com/news/business" target="_blank" rel="noopener noreferrer">BBC Business</a></li>
+                <li><a href="https://www.investing.com/news/commodities-news" target="_blank" rel="noopener noreferrer">Investing.com Commodities</a></li>
+                <li><a href="https://www.spglobal.com/commodityinsights/" target="_blank" rel="noopener noreferrer">S&P Commodity Insights</a></li>
+              </ul>
+            </div>
+          </div>
         </div>
       </main>
     </div>
@@ -140,18 +223,58 @@
         return div.innerHTML;
       }
 
+      function renderItem(item) {
+        if (typeof item === 'object' && item !== null && item.text != null) {
+          const name = escapeHtml(item.sourceName || 'Nguồn');
+          const url = (item.sourceUrl || '').trim();
+          const link = url
+            ? `<span class="item-source"> · Nguồn: <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${name}</a></span>`
+            : `<span class="item-source"> · Nguồn: ${name} (tổng hợp từ mô hình)</span>`;
+          return `<li>${escapeHtml(item.text)}${link}</li>`;
+        }
+        return `<li>${escapeHtml(String(item))}</li>`;
+      }
+
+      function sectionToHtml(s) {
+        return `
+          <section class="news-section">
+            <h3>${escapeHtml(s.title || 'Tin tức')}</h3>
+            <ul>${(s.items || []).map(renderItem).join('')}</ul>
+          </section>
+        `;
+      }
+
       function renderFromJson(data) {
         const sections = data.sections || [];
         if (sections.length === 0) {
           root.innerHTML = '<div class="content-loading">Chưa có nội dung.</div>';
           return;
         }
-        root.innerHTML = sections.map(s => `
-          <section class="news-section">
-            <h3>${escapeHtml(s.title || 'Tin tức')}</h3>
-            <ul>${(s.items || []).map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
-          </section>
-        `).join('');
+        root.innerHTML = sections.map(sectionToHtml).join('');
+      }
+
+      const REVEAL_DELAY_MS = 320;
+
+      function delay(ms) {
+        return new Promise((r) => setTimeout(r, ms));
+      }
+
+      async function renderFromJsonStreaming(data) {
+        const sections = data.sections || [];
+        if (sections.length === 0) {
+          root.innerHTML = '<div class="content-loading">Chưa có nội dung.</div>';
+          return;
+        }
+        root.innerHTML = '';
+        const wrap0 = document.createElement('div');
+        wrap0.innerHTML = sectionToHtml(sections[0]);
+        while (wrap0.firstElementChild) root.appendChild(wrap0.firstElementChild);
+        for (let i = 1; i < sections.length; i++) {
+          await delay(REVEAL_DELAY_MS);
+          const wrap = document.createElement('div');
+          wrap.innerHTML = sectionToHtml(sections[i]);
+          while (wrap.firstElementChild) root.appendChild(wrap.firstElementChild);
+        }
       }
 
       async function load(forceRefresh = false) {
@@ -167,7 +290,7 @@
               root.innerHTML = '<div class="content-error">' + escapeHtml(json.error || 'Lỗi tải tin tức') + '</div>';
               return;
             }
-            if (json.content) renderFromJson(json.content);
+            if (json.content) await renderFromJsonStreaming(json.content);
             else root.innerHTML = '<div class="content-loading">Chưa có nội dung.</div>';
             return;
           }
