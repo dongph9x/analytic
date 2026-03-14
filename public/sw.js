@@ -4,13 +4,12 @@
 const CACHE_NAME = 'analytic-pwa-v1';
 const PRECACHE = [
   '/',
-  '/index.html',
   '/app.js',
   '/api-auth.js',
-  '/fengshui.html',
+  '/fengshui',
   '/fengshui.js',
-  '/qa.html',
-  '/exchange.html',
+  '/qa',
+  '/exchange',
   '/manifest.webmanifest',
   '/icons/icon.svg'
 ];
@@ -44,7 +43,7 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => caches.match('/index.html').then((r) => r || caches.match('/')))
+      fetch(request).catch(() => caches.match('/').then((r) => r || caches.match('/index.html')))
     );
     return;
   }
