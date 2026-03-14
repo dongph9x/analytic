@@ -4,6 +4,8 @@ const path = require('path');
 const { crawlGoldPrice } = require('./crawlers/goldCrawler');
 const { crawlFuelPrice } = require('./crawlers/fuelCrawler');
 const { getChartDataFromChatGPT, isConfigured: isChatGPTConfigured } = require('./services/chatgptService');
+const { fetchPvoilFuelTable } = require('./services/pvoilFuel');
+const { fetchKimTaiNgocGold } = require('./services/kimTaiNgocGold');
 const {
   getNewsContent,
   getOutlookContent,
@@ -54,6 +56,48 @@ function build30Values(current, baseFallback, variation = 0.02) {
   return values;
 }
 
+const minFuelValid = 5;
+
+/**
+ * Chỉ crawl PVOIL + Kim Tài Ngọc, trả về ngay để hiển thị bảng giá (không đợi ChatGPT).
+ * Format giống getPricesData() để frontend render bảng được ngay.
+ */
+async function getCurrentPricesFromCrawl() {
+  const labels = getLast30DayLabels();
+  const [pvoilData, kimTaiNgocGold] = await Promise.all([
+    fetchPvoilFuelTable(),
+    fetchKimTaiNgocGold()
+  ]);
+  const ron95 = pvoilData?.ron95 > minFuelValid ? pvoilData.ron95 : 25.0;
+  const doPrice = pvoilData?.do > minFuelValid ? pvoilData.do : 21.5;
+  const goldBuy = kimTaiNgocGold?.buy ?? null;
+  const goldSell = kimTaiNgocGold?.sell ?? null;
+
+  return {
+    labels,
+    gold: {
+      label: 'Vàng nhẫn trơn 9999 (triệu VND/lượng)',
+      unit: 'triệu VND/lượng',
+      values: build30Values(goldBuy, 78.5),
+      current: goldBuy,
+      currentSell: goldSell
+    },
+    fuelRON95: {
+      label: 'Xăng RON 95 (nghìn VND/lít)',
+      unit: 'nghìn VND/lít',
+      values: build30Values(ron95, 25.0),
+      current: ron95
+    },
+    fuelDO: {
+      label: 'Dầu (nghìn VND/lít)',
+      unit: 'nghìn VND/lít',
+      values: build30Values(doPrice, 21.5),
+      current: doPrice
+    },
+    lastUpdate: new Date().toISOString(),
+    source: 'crawl'
+  };
+}
 
 /**
  * Lấy dữ liệu từ cache hoặc crawl mới. Luôn ưu tiên số liệu tại thời điểm hiện tại.
@@ -106,7 +150,6 @@ async function getPricesData(forceRefresh = false) {
       crawlGoldPrice(),
       crawlFuelPrice()
     ]);
-    const minFuelValid = 5;
     const currentFuel = {
       ron95: currentFuelRaw?.ron95 > minFuelValid ? currentFuelRaw.ron95 : 25.0,
       do: currentFuelRaw?.do > minFuelValid ? currentFuelRaw.do : 21.5
@@ -171,6 +214,17 @@ async function getPricesData(forceRefresh = false) {
     };
   }
 }
+
+/** Chỉ crawl bảng giá (PVOIL + Kim Tài Ngọc), trả về nhanh để hiển thị bảng ngay. */
+app.get('/api/prices/current', async (req, res) => {
+  try {
+    const data = await getCurrentPricesFromCrawl();
+    res.json(data);
+  } catch (error) {
+    console.error('Error in /api/prices/current:', error);
+    res.status(500).json({ error: 'Failed to fetch current prices' });
+  }
+});
 
 app.get('/api/prices', async (req, res) => {
   try {

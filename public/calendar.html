@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lịch dương, âm lịch, giờ hoàng đạo | Phân tích Việt Nam</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        background: radial-gradient(circle at top left, #0f172a, #020617 45%, #000 100%);
+        color: #e5e7eb;
+        min-height: 100vh;
+        padding: 24px;
+      }
+      .app-shell {
+        max-width: 900px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        background: rgba(15, 23, 42, 0.96);
+        border-radius: 24px;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.8), 0 0 0 1px rgba(148, 163, 184, 0.08);
+        overflow: hidden;
+      }
+      .nav {
+        flex-shrink: 0;
+        display: flex;
+        gap: 4px;
+        padding: 12px 24px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.9);
+        background: rgba(15, 23, 42, 0.6);
+      }
+      .nav a {
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        color: #94a3b8;
+        text-decoration: none;
+        transition: color 0.15s, background 0.15s;
+      }
+      .nav a:hover { color: #e2e8f0; background: rgba(51, 65, 85, 0.6); }
+      .nav a.active { color: #f9fafb; background: rgba(59, 130, 246, 0.25); font-weight: 500; }
+      .main { flex: 1 1 auto; min-height: 0; padding: 24px 28px 32px; }
+      .page-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+      .page-caption { font-size: 12px; color: #9ca3af; margin-bottom: 20px; }
+      .block {
+        background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.25), rgba(15, 23, 42, 0.96));
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        border-radius: 16px;
+        padding: 18px 20px;
+        margin-bottom: 16px;
+      }
+      .block:last-child { margin-bottom: 0; }
+      .block h2 {
+        font-size: 15px; font-weight: 600; color: #e5e7eb;
+        margin-bottom: 14px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.8);
+      }
+      .date-picker-wrap { margin-bottom: 20px; }
+      .date-picker-wrap label {
+        display: block;
+        font-size: 12px; color: #94a3b8;
+        margin-bottom: 6px;
+      }
+      .date-picker-wrap input {
+        width: 140px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        background: rgba(15, 23, 42, 0.9);
+        color: #e5e7eb;
+        font-size: 14px;
+      }
+      .date-picker-wrap input:focus {
+        outline: none;
+        border-color: rgba(59, 130, 246, 0.6);
+      }
+      .date-picker-wrap .input-and-picker {
+        position: relative;
+        display: inline-block;
+      }
+      .calendar-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        margin-top: 6px;
+        z-index: 100;
+        background: rgba(15, 23, 42, 0.98);
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+        min-width: 280px;
+      }
+      .calendar-dropdown.hidden { display: none; }
+      .calendar-dropdown .cal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+      .calendar-dropdown .cal-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #e5e7eb;
+      }
+      .calendar-dropdown .cal-prev,
+      .calendar-dropdown .cal-next {
+        background: rgba(51, 65, 85, 0.8);
+        border: none;
+        color: #e5e7eb;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .calendar-dropdown .cal-prev:hover,
+      .calendar-dropdown .cal-next:hover {
+        background: rgba(59, 130, 246, 0.4);
+      }
+      .calendar-dropdown .cal-weekdays {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+        margin-bottom: 6px;
+        font-size: 11px;
+        color: #94a3b8;
+        text-align: center;
+      }
+      .calendar-dropdown .cal-days {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+      }
+      .calendar-dropdown .cal-day {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        color: #f1f5f9;
+        background: rgba(30, 41, 59, 0.8);
+        border: 1px solid rgba(51, 65, 85, 0.6);
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .calendar-dropdown .cal-day.other-month {
+        color: #64748b;
+        background: rgba(15, 23, 42, 0.6);
+      }
+      .calendar-dropdown .cal-day.today {
+        background: rgba(34, 197, 94, 0.35);
+        color: #f0fdf4;
+        border-color: rgba(34, 197, 94, 0.5);
+        font-weight: 600;
+      }
+      .calendar-dropdown .cal-day.selected {
+        background: rgba(59, 130, 246, 0.7);
+        color: #fff;
+        border-color: rgba(96, 165, 250, 0.8);
+      }
+      .calendar-dropdown .cal-day:hover:not(.empty) {
+        background: rgba(71, 85, 105, 0.95);
+        color: #f8fafc;
+        border-color: rgba(148, 163, 184, 0.5);
+      }
+      .calendar-dropdown .cal-day.empty { cursor: default; visibility: hidden; }
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 8px 16px;
+        font-size: 14px;
+      }
+      .calendar-grid .label { color: #94a3b8; }
+      .calendar-grid .value { color: #f1f5f9; font-weight: 500; }
+      .hour-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .hour-table th,
+      .hour-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.8);
+      }
+      .hour-table th { color: #94a3b8; font-weight: 500; }
+      .hour-table .hour-good { color: #22c55e; }
+      .hour-table .hour-bad { color: #94a3b8; }
+      .hour-table tr:hover { background: rgba(30, 41, 59, 0.5); }
+      .day-chi { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <nav class="nav">
+        <a href="index.html">Trang chủ</a>
+        <a href="news.html">Tin tức</a>
+        <a href="outlook.html">Nhận định</a>
+        <a href="calendar.html" class="active">Lịch</a>
+      </nav>
+      <main class="main">
+        <h1 class="page-title">Lịch dương, âm lịch & giờ hoàng đạo</h1>
+        <p class="page-caption">Chọn ngày để xem lịch âm và giờ tốt (hoàng đạo) trong ngày.</p>
+
+        <div class="date-picker-wrap">
+          <label for="input-date">Chọn ngày (dd/mm/yyyy)</label>
+          <div class="input-and-picker">
+            <input type="text" id="input-date" placeholder="dd/mm/yyyy" autocomplete="off" maxlength="10" />
+            <div id="calendar-dropdown" class="calendar-dropdown hidden" aria-hidden="true"></div>
+          </div>
+        </div>
+
+        <section class="block" id="block-solar">
+          <h2>Lịch dương</h2>
+          <div class="calendar-grid" id="solar-content"></div>
+        </section>
+
+        <section class="block" id="block-lunar">
+          <h2>Âm lịch</h2>
+          <div class="calendar-grid" id="lunar-content"></div>
+          <div class="day-chi" id="day-chi"></div>
+        </section>
+
+        <section class="block" id="block-hours">
+          <h2>Giờ hoàng đạo & hắc đạo</h2>
+          <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">6 giờ hoàng đạo (tốt) và 6 giờ hắc đạo (xấu) theo ngày. Giờ tính theo 12 con giáp (mỗi giờ = 2 tiếng đồng hồ).</p>
+          <table class="hour-table" id="hour-table">
+            <thead>
+              <tr>
+                <th>Giờ</th>
+                <th>Khung giờ (VN)</th>
+                <th>Loại</th>
+              </tr>
+            </thead>
+            <tbody id="hour-tbody"></tbody>
+          </table>
+        </section>
+      </main>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lunar-javascript/1.7.4/lunar.min.js"></script>
+    <script src="calendar.js"></script>
+  </body>
+</html>
