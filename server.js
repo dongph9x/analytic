@@ -18,6 +18,7 @@ const { streamPlanningReportToResponse, isConfigured: isPlanningConfigured } = r
 const { getInterestRates } = require('./services/interestRatesService');
 const { getFengshuiRecommendation } = require('./services/fengshuiService');
 const { askChatGPT } = require('./services/qaService');
+const { fetchVietcombankRates } = require('./services/webgiaExchangeService');
 
 const app = express();
 const PORT = process.env.PORT || 3004;
@@ -505,6 +506,25 @@ app.post('/api/qa', requireApiAuth, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error in /api/qa:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+const exchangeRateCache = { data: null, ts: 0, ttl: 5 * 60 * 1000 };
+app.get('/api/exchange-rate', async (req, res) => {
+  try {
+    const now = Date.now();
+    if (req.query.refresh === '1' || !exchangeRateCache.data || now - exchangeRateCache.ts > exchangeRateCache.ttl) {
+      const result = await fetchVietcombankRates();
+      if (result.ok) {
+        exchangeRateCache.data = result;
+        exchangeRateCache.ts = now;
+      }
+      return res.json(result);
+    }
+    res.json(exchangeRateCache.data);
+  } catch (error) {
+    console.error('Error in /api/exchange-rate:', error);
     res.status(500).json({ ok: false, error: error.message });
   }
 });

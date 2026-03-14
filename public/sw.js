@@ -10,6 +10,7 @@ const PRECACHE = [
   '/fengshui.html',
   '/fengshui.js',
   '/qa.html',
+  '/exchange.html',
   '/manifest.webmanifest',
   '/icons/icon.svg'
 ];

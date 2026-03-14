@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Tỷ giá Vietcombank | Phân tích Việt Nam</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        background: radial-gradient(circle at top left, #0f172a, #020617 45%, #000 100%);
+        color: #e5e7eb;
+        min-height: 100vh;
+        padding: 24px;
+      }
+      .app-shell {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        background: rgba(15, 23, 42, 0.96);
+        border-radius: 24px;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.8), 0 0 0 1px rgba(148, 163, 184, 0.08);
+        overflow: hidden;
+      }
+      .nav {
+        flex-shrink: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 12px 24px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.9);
+        background: rgba(15, 23, 42, 0.6);
+      }
+      .nav a {
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        color: #94a3b8;
+        text-decoration: none;
+        transition: color 0.15s, background 0.15s;
+      }
+      .nav a:hover { color: #e2e8f0; background: rgba(51, 65, 85, 0.6); }
+      .nav a.active { color: #f9fafb; background: rgba(59, 130, 246, 0.25); font-weight: 500; }
+      .main { flex: 1 1 auto; min-height: 0; padding: 24px 28px 32px; }
+      .page-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+      .page-caption { font-size: 12px; color: #9ca3af; margin-bottom: 18px; }
+
+      .card {
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        border-radius: 16px;
+        background: rgba(15, 23, 42, 0.6);
+        padding: 16px 18px;
+      }
+      .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #e5e7eb; }
+      .muted { color: #94a3b8; font-size: 12px; }
+      .error { color: #f87171; font-size: 12px; }
+      .actions { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+      .btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 9px 14px; border-radius: 999px;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        background: rgba(30, 41, 59, 0.9);
+        color: #e2e8f0; font-size: 13px;
+        cursor: pointer;
+      }
+      .btn:hover { border-color: rgba(148, 163, 184, 0.7); background: rgba(51, 65, 85, 0.8); }
+      .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+      .table-wrap { overflow: auto; border-radius: 14px; border: 1px solid rgba(51, 65, 85, 0.75); }
+      table.tbl { width: 100%; border-collapse: collapse; min-width: 480px; }
+      .tbl th, .tbl td { padding: 10px 12px; border-bottom: 1px solid rgba(51, 65, 85, 0.65); text-align: left; font-size: 13px; }
+      .tbl th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; background: rgba(2, 6, 23, 0.4); }
+      .tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .tbl .code { font-weight: 600; color: #e2e8f0; }
+      .source-link { color: #7dd3fc; text-decoration: none; }
+      .source-link:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <nav class="nav">
+        <a href="index.html">Trang chủ</a>
+        <a href="news.html">Tin tức</a>
+        <a href="outlook.html">Nhận định</a>
+        <a href="calendar.html">Lịch</a>
+        <a href="planning-check.html">Kiểm tra quy hoạch</a>
+        <a href="fengshui.html">Phong thủy</a>
+        <a href="qa.html">Hỏi đáp</a>
+        <a href="exchange.html" class="active">Tỷ giá</a>
+      </nav>
+      <main class="main">
+        <h1 class="page-title">Tỷ giá Vietcombank</h1>
+        <p class="page-caption">Cập nhật từ <a href="https://webgia.com/ty-gia/vietcombank/" class="source-link" target="_blank" rel="noopener">Webgia.com</a>. Đơn vị: VND.</p>
+
+        <section class="card">
+          <h2>Bảng tỷ giá ngoại tệ</h2>
+          <div class="actions">
+            <button type="button" class="btn" id="btn-refresh" onclick="if(window.exchangeRefresh) window.exchangeRefresh();">Cập nhật</button>
+            <span class="muted" id="updated-at"></span>
+            <span class="error" id="error-msg"></span>
+          </div>
+          <div id="table-wrap" class="table-wrap">
+            <div class="muted" id="table-placeholder">Đang tải…</div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+(function () {
+  function el(id) { return document.getElementById(id); }
+  function formatNum(n) {
+    if (n == null || Number.isNaN(n)) return '—';
+    return Number(n).toLocaleString('vi-VN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function render(r) {
+    var wrap = el('table-wrap');
+    var updatedAt = el('updated-at');
+    var err = el('error-msg');
+    if (!wrap) return;
+    if (!r.ok) {
+      err.textContent = r.error || 'Lỗi tải tỷ giá';
+      updatedAt.textContent = '';
+      wrap.innerHTML = '<div class="muted">Không có dữ liệu. Bấm Cập nhật để thử lại.</div>';
+      return;
+    }
+    err.textContent = '';
+    if (r.updatedAt) updatedAt.textContent = 'Cập nhật: ' + r.updatedAt;
+
+    var rates = r.rates || [];
+    if (rates.length === 0) {
+      wrap.innerHTML = '<div class="muted">Chưa có dữ liệu. Nguồn có thể thay đổi cấu trúc trang.</div>';
+      return;
+    }
+    var html = '<table class="tbl"><thead><tr><th>Ngoại tệ</th><th>Tên</th><th class="num">Mua tiền mặt</th><th class="num">Mua chuyển khoản</th><th class="num">Bán tiền mặt</th></tr></thead><tbody>';
+    for (var i = 0; i < rates.length; i++) {
+      var x = rates[i];
+      html += '<tr><td class="code">' + escapeHtml(x.code) + '</td><td>' + escapeHtml(x.name) + '</td>';
+      html += '<td class="num">' + formatNum(x.buyCash) + '</td><td class="num">' + formatNum(x.buyTransfer) + '</td><td class="num">' + formatNum(x.sellCash) + '</td></tr>';
+    }
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str != null ? String(str) : '';
+    return div.innerHTML;
+  }
+  function setLoading(loading) {
+    var btn = el('btn-refresh');
+    if (btn) btn.disabled = loading;
+    if (loading) el('table-wrap').innerHTML = '<div class="muted">Đang tải…</div>';
+  }
+  function load(refresh) {
+    setLoading(true);
+    var url = '/api/exchange-rate' + (refresh ? '?refresh=1' : '');
+    fetch(url)
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        setLoading(false);
+        render(data);
+      })
+      .catch(function (err) {
+        setLoading(false);
+        render({ ok: false, error: err.message || 'Lỗi kết nối' });
+      });
+  }
+  window.exchangeRefresh = function () { load(true); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { load(false); });
+  else load(false);
+})();
+    </script>
+  </body>
+</html>

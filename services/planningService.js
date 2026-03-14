@@ -84,6 +84,12 @@ function getVietnamAuthoritativeRegion(lat, lng) {
   if (lng >= 106.4 && lng <= 106.9 && lat >= 10.8 && lat <= 11.5) {
     return { authoritative: 'Bình Dương / Đồng Nai', detail: 'Vùng phía nam.' };
   }
+  if (lng >= 105.95 && lng <= 106.55 && lat >= 19.85 && lat <= 20.45) {
+    return { authoritative: 'Nam Định', detail: 'Vùng đồng bằng sông Hồng. Tọa độ ~20°10\'N 106°15\'E thuộc tỉnh Nam Định (có thể Hải Hậu, Hải Đường...), KHÔNG phải Hà Nội (Hà Nội ở phía bắc, kinh độ ~105°-106°).' };
+  }
+  if (lng >= 105.4 && lng <= 106.05 && lat >= 20.7 && lat <= 21.2) {
+    return { authoritative: 'Hà Nội', detail: 'Thủ đô Hà Nội. KHÔNG phải Nam Định (Nam Định ở phía nam, ~20°N 106°E).' };
+  }
   return null;
 }
 
@@ -209,8 +215,15 @@ async function streamPlanningReportToResponse(res, lat, lng, mapLink) {
   try {
     const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
     const prompt = buildPlanningPrompt(lat, lng, mapLink || null, authoritativeRegion, searchResults);
+    const prov = authoritativeRegion && authoritativeRegion.authoritative;
+    const forbid =
+      prov && prov.includes('Nam Định')
+        ? ' Cấm nêu Hà Nội hay tỉnh/thành khác.'
+        : prov && prov.includes('Hà Nội')
+          ? ' Cấm nêu Nam Định hay tỉnh khác.'
+          : ' Cấm nêu Bà Rịa - Vũng Tàu, Đồng Nai, Bình Dương hay tỉnh khác.';
     const systemContent = authoritativeRegion
-      ? `Bạn trả lời bằng tiếng Việt. Trong prompt có mục [SỰ THẬT ĐỊA LÝ – BẮT BUỘC TUÂN THỦ]: bạn PHẢI dùng đúng tỉnh "${authoritativeRegion.authoritative}" trong toàn bộ báo cáo (mục 1, 2, 4). Cấm nêu Bà Rịa - Vũng Tàu, Đồng Nai, Bình Dương hay tỉnh khác. Trả lời văn bản thuần, đánh số 1., 2., ...`
+      ? `Bạn trả lời bằng tiếng Việt. Trong prompt có mục [SỰ THẬT ĐỊA LÝ – BẮT BUỘC TUÂN THỦ]: bạn PHẢI dùng đúng tỉnh/thành "${prov}" trong toàn bộ báo cáo (mục 1, 2, 4).${forbid} Trả lời văn bản thuần, đánh số 1., 2., ...`
       : 'Bạn trả lời bằng tiếng Việt, văn bản thuần, đánh số 1., 2., ...';
 
     const stream = await openai.chat.completions.create({
