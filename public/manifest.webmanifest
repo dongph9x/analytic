@@ -1,0 +1,20 @@
+{
+  "name": "Phân tích giá vàng & xăng dầu VN",
+  "short_name": "Giá vàng xăng dầu",
+  "description": "Dashboard giá vàng, xăng dầu, lãi suất ngân hàng Việt Nam",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0f172a",
+  "background_color": "#020617",
+  "lang": "vi",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

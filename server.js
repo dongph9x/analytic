@@ -16,6 +16,7 @@ const {
 } = require('./services/contentService');
 const { streamPlanningReportToResponse, isConfigured: isPlanningConfigured } = require('./services/planningService');
 const { getInterestRates } = require('./services/interestRatesService');
+const { getFengshuiRecommendation } = require('./services/fengshuiService');
 
 const app = express();
 const PORT = process.env.PORT || 3004;
@@ -58,6 +59,54 @@ function notifyDiscord(message) {
   axios
     .post(DISCORD_WEBHOOK_URL.trim(), { content: message }, { timeout: 5000 })
     .catch((err) => console.warn('Discord webhook:', err.message));
+}
+
+/** Gửi summary dữ liệu trang chủ lên Discord (job nền cập nhật). Fire-and-forget. */
+function notifyDiscordPrices(data) {
+  if (!DISCORD_WEBHOOK_URL || !DISCORD_WEBHOOK_URL.trim() || !data) return;
+  try {
+    const g = data.gold;
+    const r95 = data.fuelRON95;
+    const d = data.fuelDO;
+    const ir = data.interestRates || {};
+    const vn = ir.vn || {};
+    const fed = ir.fed || {};
+    const lastUpdate = data.lastUpdate ? new Date(data.lastUpdate).toLocaleString('vi-VN') : '—';
+
+    const lines = [
+      '📊 **Job cập nhật trang chủ**',
+      `🕐 ${lastUpdate}`,
+      '',
+      '**Vàng (triệu VND/lượng)**',
+      `Mua: ${g?.current != null ? g.current : '—'} | Bán: ${g?.currentSell != null ? g.currentSell : '—'}`,
+      '',
+      '**Xăng dầu (nghìn VND/lít)**',
+      `RON 95: ${r95?.current != null ? r95.current : '—'} | Dầu DO: ${d?.current != null ? d.current : '—'}`,
+      '',
+      '**Lãi suất**',
+      `VN tái cấp: ${vn.refinancingRate != null ? vn.refinancingRate + '%' : '—'} | Qua đêm: ${vn.overnightRate != null ? vn.overnightRate + '%' : '—'} | FED: ${fed.rate != null ? fed.rate + '%' : '—'}`
+    ];
+
+    if (Array.isArray(ir.banks) && ir.banks.length > 0) {
+      lines.push('', '**Tiết kiệm (12 tháng)**');
+      ir.banks.forEach((b) => {
+        lines.push(`${b.name}: ${b.rate12m != null ? b.rate12m + '%' : '—'}`);
+      });
+    }
+    if (Array.isArray(ir.bankLoans) && ir.bankLoans.length > 0) {
+      lines.push('', '**Vay (tín chấp / thế chấp)**');
+      ir.bankLoans.forEach((b) => {
+        lines.push(`${b.name}: ${b.loanUnsecured || '—'} / ${b.loanSecured || '—'}`);
+      });
+    }
+
+    const msg = lines.join('\n');
+    axios
+      .post(DISCORD_WEBHOOK_URL.trim(), { content: msg.slice(0, 2000) }, { timeout: 5000 })
+      .catch((err) => console.warn('Discord webhook (prices):', err.message));
+  } catch (err) {
+    console.warn('notifyDiscordPrices:', err.message);
+  }
 }
 
 /** Gửi Discord với thông tin: chức năng, IP, location (gọi bất đồng bộ, không chặn response). */
@@ -351,7 +400,9 @@ app.get('/api/prices', requireApiAuth, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
     const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
+    const notifyDiscord = req.query.notify_discord === '1' || req.query.notify_discord === 'true';
     const data = await getPricesData(forceRefresh);
+    if (notifyDiscord) notifyDiscordPrices(data);
     res.json(data);
   } catch (error) {
     console.error('Error in /api/prices:', error);
@@ -430,6 +481,26 @@ app.get('/api/outlook', requireApiAuth, async (req, res) => {
     console.error('Error in /api/outlook:', error);
     res.status(500).json({ ok: false, error: error.message, content: null });
   }
+});
+
+app.post('/api/fengshui', requireApiAuth, async (req, res) => {
+  try {
+    const husbandName = typeof req.body?.husbandName === 'string' ? req.body.husbandName.trim() : '';
+    const husbandDob = typeof req.body?.husbandDob === 'string' ? req.body.husbandDob.trim() : '';
+    const wifeName = typeof req.body?.wifeName === 'string' ? req.body.wifeName.trim() : '';
+    const wifeDob = typeof req.body?.wifeDob === 'string' ? req.body.wifeDob.trim() : '';
+    const result = await getFengshuiRecommendation(husbandName, husbandDob, wifeName, wifeDob);
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /api/fengshui:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// PWA manifest – MIME type chuẩn
+app.get('/manifest.webmanifest', (req, res) => {
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.sendFile(path.join(__dirname, 'public', 'manifest.webmanifest'));
 });
 
 // Static files (sau API để /api/* không bị serve file)

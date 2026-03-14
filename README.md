@@ -38,6 +38,7 @@ Kèm biến động so với ngày trước và thời điểm cập nhật.
   - Xăng dầu: [PVOIL](https://www.pvoil.com.vn/tin-gia-xang-dau) – bảng giá chính thức.
 - ✅ **Fallback crawl** khi không dùng ChatGPT hoặc ChatGPT lỗi: `goldCrawler`, `fuelCrawler`.
 - ✅ **Cache 2 phút** (giá & lãi suất) / **1 giờ** (tin tức, nhận định); nút **Làm mới** (`?refresh=1`) để fetch lại; crawl từ **nguồn uy tín** (SBV, FED, PVOIL, Webgia, Tima – chi tiết trong `SOURCES.md`).
+- ✅ **PWA**: Web app manifest (`/manifest.webmanifest`), service worker (cache tĩnh, API qua mạng), theme-color; có thể **Thêm vào màn hình chính** trên điện thoại/máy tính.
 
 ### Chạy trực tiếp (không Docker)
 
@@ -70,7 +71,9 @@ Truy cập: `http://localhost:3004`
 
 | Thành phần | Mô tả |
 |------------|--------|
-| `server.js` | API `GET /api/prices` (optional `?refresh=1`), cache 2 phút, ưu tiên ChatGPT rồi fallback crawl. |
+| `server.js` | API `GET /api/prices` (optional `?refresh=1`), cache 2 phút, ưu tiên ChatGPT rồi fallback crawl; serve PWA manifest. |
+| `public/manifest.webmanifest` | PWA: tên app, start_url, theme_color, icons (SVG). |
+| `public/sw.js` | Service worker: precache trang chủ & tài nguyên tĩnh; API luôn qua mạng. |
 | `services/chatgptService.js` | Gọi OpenAI, gắn dữ liệu PVOIL + Kim Tài Ngọc vào prompt, ghi đè giá hiện tại sau khi parse. |
 | `services/pvoilFuel.js` | Crawl bảng giá xăng dầu từ PVOIL, trả về RON 95 và Dầu DO (nghìn VND/lít). |
 | `services/kimTaiNgocGold.js` | Crawl bảng giá vàng từ div `.gold-card-content` tại Kim Tài Ngọc, lấy vàng 9999 (triệu VND/lượng). |

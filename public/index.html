@@ -2,8 +2,14 @@
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Giá vàng xăng dầu" />
     <title>Phân tích giá vàng & giá xăng dầu Việt Nam</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon.svg" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
@@ -543,6 +549,7 @@
         <a href="outlook.html">Nhận định</a>
         <a href="calendar.html">Lịch</a>
         <a href="planning-check.html">Kiểm tra quy hoạch</a>
+        <a href="fengshui.html">Phong thủy</a>
       </nav>
       <main class="main-panel">
         <header class="header">
@@ -669,6 +676,16 @@
 
     <script src="api-auth.js"></script>
     <script src="app.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(
+            function (reg) { console.log('PWA: SW registered', reg.scope); },
+            function (err) { console.warn('PWA: SW registration failed', err); }
+          );
+        });
+      }
+    </script>
   </body>
   </html>
 

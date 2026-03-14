@@ -221,8 +221,9 @@ function renderBankLoanRatesTable() {
     .join('');
 }
 
-async function loadData(forceRefresh = false) {
-  const fullUrl = forceRefresh ? '/api/prices?refresh=1' : '/api/prices';
+async function loadData(forceRefresh = false, fromBackgroundJob = false) {
+  let fullUrl = forceRefresh ? '/api/prices?refresh=1' : '/api/prices';
+  if (fromBackgroundJob) fullUrl += (fullUrl.includes('?') ? '&' : '?') + 'notify_discord=1';
   // Hiển thị bảng ngay khi có dữ liệu crawl (không đợi ChatGPT).
   try {
     const currentData = await fetchCurrentPrices();
@@ -280,9 +281,9 @@ async function init() {
     });
   }
 
-  // Job nền: cứ 10 phút fetch lại data và cập nhật cache + bảng.
+  // Job nền: cứ 10 phút fetch lại data, cập nhật bảng và gửi summary lên Discord.
   setInterval(() => {
-    loadData(false).catch((err) => console.warn('Background refresh failed:', err));
+    loadData(false, true).catch((err) => console.warn('Background refresh failed:', err));
   }, BACKGROUND_INTERVAL_MS);
 }
 
