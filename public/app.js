@@ -81,6 +81,9 @@ function formatChange(change, prevValue, currentValue) {
 function renderTable() {
   const el = document.getElementById('price-tbody');
   const lastUpdateEl = document.getElementById('last-update');
+  renderInterestRatesTable();
+  renderBankRatesTable();
+  renderBankLoanRatesTable();
   if (!el) return;
 
   if (!rawData || !rawData.gold || !rawData.fuelRON95 || !rawData.fuelDO) {
@@ -105,8 +108,8 @@ function renderTable() {
     },
     {
       name: 'Xăng RON 95',
-      mua: rawData.fuelRON95.current,
-      ban: null,
+      mua: null,
+      ban: rawData.fuelRON95.current,
       unit: rawData.fuelRON95.unit,
       change: ron95Compare.change,
       prevValue: ron95Compare.prevValue,
@@ -114,8 +117,8 @@ function renderTable() {
     },
     {
       name: 'Dầu',
-      mua: rawData.fuelDO.current,
-      ban: null,
+      mua: null,
+      ban: rawData.fuelDO.current,
       unit: rawData.fuelDO.unit,
       change: doCompare.change,
       prevValue: doCompare.prevValue,
@@ -145,6 +148,77 @@ function renderTable() {
       lastUpdateEl.textContent = rawData.lastUpdate || '--';
     }
   }
+}
+
+function renderInterestRatesTable() {
+  const el = document.getElementById('interest-tbody');
+  if (!el) return;
+  const ir = rawData && rawData.interestRates;
+  const vn = ir && ir.vn;
+  const fed = ir && ir.fed;
+
+  const rows = [
+    { name: 'Lãi suất cơ bản (VN)', value: vn && vn.baseRate != null ? vn.baseRate : null, source: 'SBV / CafeF' },
+    { name: 'Lãi suất tái cấp vốn (VN)', value: vn && vn.refinancingRate != null ? vn.refinancingRate : null, source: 'SBV / CafeF' },
+    { name: 'Lãi suất qua đêm liên ngân hàng (VN)', value: vn && vn.overnightRate != null ? vn.overnightRate : null, source: 'SBV / CafeF' },
+    { name: 'Fed Funds Rate (FED)', value: fed && fed.rate != null ? fed.rate : null, source: 'Federal Reserve H.15' }
+  ];
+  el.innerHTML = rows
+    .map(
+      (r) => `
+    <tr>
+      <td>${r.name}</td>
+      <td class="price-cell">${r.value != null ? formatNumber(r.value, 2) + '%' : '--'}</td>
+      <td class="unit-cell">${r.source}</td>
+    </tr>
+  `
+    )
+    .join('');
+}
+
+function renderBankRatesTable() {
+  const el = document.getElementById('bank-rates-tbody');
+  if (!el) return;
+  const banks = rawData && rawData.interestRates && rawData.interestRates.banks;
+  if (!Array.isArray(banks) || banks.length === 0) {
+    el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:16px;">Chưa có dữ liệu. Thử Làm mới.</td></tr>';
+    return;
+  }
+  el.innerHTML = banks
+    .map(
+      (b) => `
+    <tr>
+      <td>${b.name || b.code}</td>
+      <td class="price-cell">${b.rate1m != null ? formatNumber(b.rate1m, 2) + '%' : '--'}</td>
+      <td class="price-cell">${b.rate6m != null ? formatNumber(b.rate6m, 2) + '%' : '--'}</td>
+      <td class="price-cell">${b.rate12m != null ? formatNumber(b.rate12m, 2) + '%' : '--'}</td>
+      <td class="unit-cell">Webgia.com</td>
+    </tr>
+  `
+    )
+    .join('');
+}
+
+function renderBankLoanRatesTable() {
+  const el = document.getElementById('bank-loans-tbody');
+  if (!el) return;
+  const loans = rawData && rawData.interestRates && rawData.interestRates.bankLoans;
+  if (!Array.isArray(loans) || loans.length === 0) {
+    el.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:16px;">Chưa có dữ liệu. Thử Làm mới.</td></tr>';
+    return;
+  }
+  el.innerHTML = loans
+    .map(
+      (b) => `
+    <tr>
+      <td>${b.name || b.code}</td>
+      <td class="price-cell">${b.loanUnsecured != null ? b.loanUnsecured : '--'}</td>
+      <td class="price-cell">${b.loanSecured != null ? b.loanSecured : '--'}</td>
+      <td class="unit-cell">Tima.vn</td>
+    </tr>
+  `
+    )
+    .join('');
 }
 
 async function loadData(forceRefresh = false) {

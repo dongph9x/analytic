@@ -18,7 +18,9 @@ async function fetchPvoilFuelTable() {
     const res = await axios.get(PVOIL_URL, {
       timeout: 15000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; analytic-chart/1.0; +https://github.com)'
+        'User-Agent': 'Mozilla/5.0 (compatible; analytic-chart/1.0; +https://github.com)',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache'
       }
     });
 

@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const axios = require('axios');
 const { crawlGoldPrice } = require('./crawlers/goldCrawler');
 const { crawlFuelPrice } = require('./crawlers/fuelCrawler');
 const { getChartDataFromChatGPT, isConfigured: isChatGPTConfigured } = require('./services/chatgptService');
@@ -14,12 +15,66 @@ const {
   streamOutlookToResponse
 } = require('./services/contentService');
 const { streamPlanningReportToResponse, isConfigured: isPlanningConfigured } = require('./services/planningService');
+const { getInterestRates } = require('./services/interestRatesService');
 
 const app = express();
 const PORT = process.env.PORT || 3004;
+app.set('trust proxy', 1);
 
 const API_AUTH_PASSWORD = process.env.API_AUTH_PASSWORD;
 const SESSION_SECRET = process.env.SESSION_SECRET;
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
+
+/** Lấy IP client (ưu tiên X-Forwarded-For khi đứng sau proxy). */
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    const first = typeof forwarded === 'string' ? forwarded.split(',')[0] : forwarded[0];
+    if (first && first.trim()) return first.trim();
+  }
+  return req.ip || req.socket?.remoteAddress || '—';
+}
+
+/** Geolocation từ IP (ip-api.com, free). Trả về chuỗi "Thành phố, Quốc gia" hoặc "—" nếu lỗi/IP nội bộ. */
+function getLocationFromIp(ip) {
+  if (!ip || ip === '—' || /^127\.|^10\.|^172\.(1[6-9]|2\d|3[01])\.|^192\.168\.|^::1$/i.test(ip)) {
+    return Promise.resolve('Nội bộ');
+  }
+  return axios
+    .get(`http://ip-api.com/json/${encodeURIComponent(ip)}?fields=country,city,regionName`, { timeout: 4000 })
+    .then((res) => {
+      const d = res.data;
+      if (d && (d.city || d.country)) {
+        return [d.city, d.regionName, d.country].filter(Boolean).join(', ') || '—';
+      }
+      return '—';
+    })
+    .catch(() => '—');
+}
+
+/** Gửi thông báo lên Discord (fire-and-forget). Nếu chưa cấu hình webhook thì bỏ qua. */
+function notifyDiscord(message) {
+  if (!DISCORD_WEBHOOK_URL || !DISCORD_WEBHOOK_URL.trim()) return;
+  axios
+    .post(DISCORD_WEBHOOK_URL.trim(), { content: message }, { timeout: 5000 })
+    .catch((err) => console.warn('Discord webhook:', err.message));
+}
+
+/** Gửi Discord với thông tin: chức năng, IP, location (gọi bất đồng bộ, không chặn response). */
+function notifyDiscordUsage(featureName, ip) {
+  if (!DISCORD_WEBHOOK_URL || !DISCORD_WEBHOOK_URL.trim()) return;
+  getLocationFromIp(ip).then((location) => {
+    const at = new Date().toLocaleString('vi-VN');
+    const msg = [
+      '🔐 **Có người đang sử dụng**',
+      `**Chức năng:** ${featureName}`,
+      `**IP:** ${ip}`,
+      `**Vị trí (ước lượng):** ${location}`,
+      `**Thời gian:** ${at}`
+    ].join('\n');
+    notifyDiscord(msg);
+  });
+}
 
 app.use(express.json());
 app.use(
@@ -27,7 +82,7 @@ app.use(
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
+    cookie: { httpOnly: true, sameSite: 'lax', maxAge: 5 * 60 * 1000 }
   })
 );
 
@@ -43,7 +98,7 @@ function requireApiAuth(req, res, next) {
 let cache = {
   data: null,
   timestamp: null,
-  ttl: 5 * 60 * 1000 // 5 phút
+  ttl: 2 * 60 * 1000 // 2 phút – luôn ưu tiên dữ liệu mới nhất
 };
 
 const DAYS_COUNT = 30;
@@ -87,6 +142,8 @@ app.post('/api/auth', (req, res) => {
   const password = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
   if (password === API_AUTH_PASSWORD) {
     req.session.authenticated = true;
+    const ip = getClientIp(req);
+    notifyDiscordUsage('Đăng nhập', ip);
     return res.json({ ok: true });
   }
   res.status(401).json({ error: 'Mật khẩu không đúng', code: 'AUTH_REQUIRED' });
@@ -119,6 +176,11 @@ async function getCurrentPricesFromCrawl() {
   const goldBuy = kimTaiNgocGold?.buy ?? null;
   const goldSell = kimTaiNgocGold?.sell ?? null;
 
+  let interestRates = null;
+  try {
+    interestRates = await getInterestRates();
+  } catch (_) {}
+
   return {
     labels,
     gold: {
@@ -140,6 +202,7 @@ async function getCurrentPricesFromCrawl() {
       values: build30Values(doPrice, 21.5),
       current: doPrice
     },
+    interestRates: interestRates || null,
     lastUpdate: new Date().toISOString(),
     source: 'crawl'
   };
@@ -185,6 +248,11 @@ async function getPricesData(forceRefresh = false) {
             chatGPTData[key].values = arr.slice(0, n);
           }
         });
+        try {
+          chatGPTData.interestRates = await getInterestRates();
+        } catch (_) {
+          chatGPTData.interestRates = null;
+        }
         cache.data = chatGPTData;
         cache.timestamp = now;
         return chatGPTData;
@@ -224,6 +292,11 @@ async function getPricesData(forceRefresh = false) {
       },
       lastUpdate: new Date().toISOString()
     };
+    try {
+      data.interestRates = await getInterestRates();
+    } catch (_) {
+      data.interestRates = null;
+    }
 
     cache.data = data;
     cache.timestamp = now;
@@ -256,6 +329,7 @@ async function getPricesData(forceRefresh = false) {
         values: build30Values(null, 21.5),
         current: null
       },
+      interestRates: null,
       lastUpdate: new Date().toISOString()
     };
   }
@@ -263,6 +337,7 @@ async function getPricesData(forceRefresh = false) {
 
 /** Chỉ crawl bảng giá (PVOIL + Kim Tài Ngọc), trả về nhanh để hiển thị bảng ngay. */
 app.get('/api/prices/current', requireApiAuth, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   try {
     const data = await getCurrentPricesFromCrawl();
     res.json(data);
@@ -273,6 +348,7 @@ app.get('/api/prices/current', requireApiAuth, async (req, res) => {
 });
 
 app.get('/api/prices', requireApiAuth, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   try {
     const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
     const data = await getPricesData(forceRefresh);
@@ -310,6 +386,7 @@ app.get('/api/news', requireApiAuth, async (req, res) => {
 
 app.post('/api/planning-report', requireApiAuth, async (req, res) => {
   try {
+    notifyDiscordUsage('Kiểm tra quy hoạch', getClientIp(req));
     const lat = parseFloat(req.body?.lat);
     const lng = parseFloat(req.body?.lng);
     const mapLink = typeof req.body?.mapLink === 'string' ? req.body.mapLink.trim() || null : null;

@@ -20,7 +20,7 @@ Kèm biến động so với ngày trước và thời điểm cập nhật.
    - **Vàng**: crawl từ bieudogiavang.net và các nguồn dự phòng trong `crawlers/goldCrawler.js`.
    - **Xăng dầu**: crawl từ `crawlers/fuelCrawler.js`.
 
-3. **Cache**: Dữ liệu cache 5 phút; format hợp lệ là 30 nhãn DD/MM và mảng giá 30 phần tử. Gọi `/api/prices?refresh=1` hoặc bấm **Làm mới** trên giao diện để bỏ cache và lấy dữ liệu mới.
+3. **Cache**: Dữ liệu cache **2 phút** để luôn ưu tiên cập nhật mới nhất; format hợp lệ là 30 nhãn DD/MM và mảng giá 30 phần tử. Gọi `/api/prices?refresh=1` hoặc bấm **Làm mới** để bỏ cache và crawl lại từ nguồn uy tín (xem `SOURCES.md`).
 
 ### Trang web
 
@@ -37,7 +37,7 @@ Kèm biến động so với ngày trước và thời điểm cập nhật.
   - Vàng: [Kim Tài Ngọc Diamond](https://kimtaingocdiamond.com/) – bảng trong `.gold-card-content`.
   - Xăng dầu: [PVOIL](https://www.pvoil.com.vn/tin-gia-xang-dau) – bảng giá chính thức.
 - ✅ **Fallback crawl** khi không dùng ChatGPT hoặc ChatGPT lỗi: `goldCrawler`, `fuelCrawler`.
-- ✅ **Cache 5 phút** (giá) / **1 giờ** (tin tức, nhận định) và nút **Làm mới** (`?refresh=1`) để fetch lại.
+- ✅ **Cache 2 phút** (giá & lãi suất) / **1 giờ** (tin tức, nhận định); nút **Làm mới** (`?refresh=1`) để fetch lại; crawl từ **nguồn uy tín** (SBV, FED, PVOIL, Webgia, Tima – chi tiết trong `SOURCES.md`).
 
 ### Chạy trực tiếp (không Docker)
 
@@ -70,7 +70,7 @@ Truy cập: `http://localhost:3004`
 
 | Thành phần | Mô tả |
 |------------|--------|
-| `server.js` | API `GET /api/prices` (optional `?refresh=1`), cache 5 phút, ưu tiên ChatGPT rồi fallback crawl. |
+| `server.js` | API `GET /api/prices` (optional `?refresh=1`), cache 2 phút, ưu tiên ChatGPT rồi fallback crawl. |
 | `services/chatgptService.js` | Gọi OpenAI, gắn dữ liệu PVOIL + Kim Tài Ngọc vào prompt, ghi đè giá hiện tại sau khi parse. |
 | `services/pvoilFuel.js` | Crawl bảng giá xăng dầu từ PVOIL, trả về RON 95 và Dầu DO (nghìn VND/lít). |
 | `services/kimTaiNgocGold.js` | Crawl bảng giá vàng từ div `.gold-card-content` tại Kim Tài Ngọc, lấy vàng 9999 (triệu VND/lượng). |
@@ -81,7 +81,7 @@ Truy cập: `http://localhost:3004`
 
 ### Tùy chỉnh
 
-- **Thời gian cache**: Sửa `cache.ttl` trong `server.js` (mặc định 5 phút).
+- **Thời gian cache**: Sửa `cache.ttl` trong `server.js` (mặc định 2 phút). Nguồn crawl và chính sách cập nhật: xem `SOURCES.md`.
 - **Thêm nguồn crawl**: Mở rộng `services/kimTaiNgocGold.js`, `services/pvoilFuel.js` hoặc các crawler trong `crawlers/`.
 
 ### Lưu ý

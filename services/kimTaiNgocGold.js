@@ -30,7 +30,9 @@ async function fetchKimTaiNgocGold() {
     const res = await axios.get(KIM_TAI_NGOC_URL, {
       timeout: 15000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; analytic-chart/1.0)'
+        'User-Agent': 'Mozilla/5.0 (compatible; analytic-chart/1.0)',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache'
       }
     });
 
