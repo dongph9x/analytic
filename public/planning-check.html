@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kiểm tra quy hoạch theo vị trí | Phân tích Việt Nam</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Inter', system-ui, sans-serif;
+        background: radial-gradient(circle at top left, #0f172a, #020617 45%, #000 100%);
+        color: #e5e7eb;
+        min-height: 100vh;
+        padding: 24px;
+      }
+      .app-shell {
+        max-width: 960px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        background: rgba(15, 23, 42, 0.96);
+        border-radius: 24px;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.8), 0 0 0 1px rgba(148, 163, 184, 0.08);
+        overflow: hidden;
+      }
+      .nav {
+        flex-shrink: 0;
+        display: flex;
+        gap: 4px;
+        padding: 12px 24px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.9);
+        background: rgba(15, 23, 42, 0.6);
+      }
+      .nav a {
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        color: #94a3b8;
+        text-decoration: none;
+        transition: color 0.15s, background 0.15s;
+      }
+      .nav a:hover { color: #e2e8f0; background: rgba(51, 65, 85, 0.6); }
+      .nav a.active { color: #f9fafb; background: rgba(59, 130, 246, 0.25); font-weight: 500; }
+      .main { flex: 1 1 auto; min-height: 0; padding: 24px 28px 32px; }
+      .page-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+      .page-caption { font-size: 12px; color: #9ca3af; margin-bottom: 20px; }
+      .block {
+        background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.25), rgba(15, 23, 42, 0.96));
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        border-radius: 16px;
+        padding: 18px 20px;
+        margin-bottom: 16px;
+      }
+      .block:last-child { margin-bottom: 0; }
+      .block h2 {
+        font-size: 15px; font-weight: 600; color: #e5e7eb;
+        margin-bottom: 14px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(51, 65, 85, 0.8);
+      }
+      .form-group { margin-bottom: 14px; }
+      .form-group label {
+        display: block;
+        font-size: 12px; color: #94a3b8;
+        margin-bottom: 6px;
+      }
+      .form-group input,
+      .form-group textarea {
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        background: rgba(15, 23, 42, 0.9);
+        color: #e5e7eb;
+        font-size: 14px;
+      }
+      .form-group textarea { min-height: 56px; resize: vertical; }
+      .form-group input:focus,
+      .form-group textarea:focus {
+        outline: none;
+        border-color: rgba(59, 130, 246, 0.6);
+      }
+      .form-group .hint { font-size: 11px; color: #64748b; margin-top: 4px; }
+      .btn-check {
+        padding: 10px 20px;
+        border-radius: 10px;
+        border: none;
+        background: rgba(59, 130, 246, 0.5);
+        color: #e5e7eb;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .btn-check:hover { background: rgba(59, 130, 246, 0.7); }
+      .btn-check:disabled { opacity: 0.5; cursor: not-allowed; }
+      #map-container {
+        height: 360px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid rgba(55, 65, 81, 0.9);
+        margin-top: 12px;
+      }
+      #map { height: 100%; width: 100%; background: #1e293b; }
+      .coord-result {
+        font-size: 13px;
+        color: #94a3b8;
+        margin-top: 10px;
+      }
+      .coord-result strong { color: #22c55e; }
+      .coord-result.error { color: #f87171; }
+      .planning-links { list-style: none; }
+      .planning-links li {
+        margin-bottom: 10px;
+        padding: 10px 12px;
+        background: rgba(15, 23, 42, 0.6);
+        border-radius: 8px;
+        border-left: 3px solid rgba(59, 130, 246, 0.6);
+      }
+      .planning-links a {
+        color: #60a5fa;
+        text-decoration: none;
+      }
+      .planning-links a:hover { text-decoration: underline; }
+      .planning-links .link-desc { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+      .planning-steps {
+        margin-top: 14px;
+        padding-left: 18px;
+        font-size: 13px;
+        color: #cbd5e1;
+        line-height: 1.7;
+      }
+      .planning-steps li { margin-bottom: 6px; }
+      .planning-report-loading { font-size: 14px; color: #94a3b8; margin-top: 12px; }
+      .planning-report-content {
+        margin-top: 16px;
+        padding: 16px;
+        background: rgba(15, 23, 42, 0.7);
+        border-radius: 12px;
+        border: 1px solid rgba(51, 65, 85, 0.8);
+        font-size: 14px;
+        color: #cbd5e1;
+        line-height: 1.65;
+        white-space: pre-wrap;
+      }
+      .planning-report-content h3,
+      .planning-report-content strong { color: #e5e7eb; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <nav class="nav">
+        <a href="index.html">Trang chủ</a>
+        <a href="news.html">Tin tức</a>
+        <a href="outlook.html">Nhận định</a>
+        <a href="calendar.html">Lịch</a>
+        <a href="planning-check.html" class="active">Kiểm tra quy hoạch</a>
+      </nav>
+      <main class="main">
+        <h1 class="page-title">Kiểm tra vị trí đất trong phạm vi quy hoạch</h1>
+        <p class="page-caption">Nhập link Google Map của mảnh đất, xem vị trí trên bản đồ và đối chiếu với các nguồn quy hoạch chính thống.</p>
+
+        <section class="block">
+          <h2>1. Thông tin vị trí mảnh đất</h2>
+          <div class="form-group">
+            <label for="input-map-link">Link Google Map</label>
+            <input type="url" id="input-map-link" placeholder="https://www.google.com/maps/place/..." required />
+            <div class="hint">Dán link Google Maps của địa điểm (dạng place hoặc share có tọa độ @lat,lng).</div>
+          </div>
+          <button type="button" class="btn-check" id="btn-check">Kiểm tra vị trí trên bản đồ</button>
+          <div id="coord-result" class="coord-result" aria-live="polite"></div>
+          <div id="map-container">
+            <div id="map"></div>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>2. Ra soát quyết định quy hoạch (đối chiếu) — ChatGPT</h2>
+          <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 12px;">Sau khi đã kiểm tra vị trí trên bản đồ (bước 1), bấm bên dưới để ChatGPT tổng hợp thông tin liên quan đến quy hoạch cho vị trí đó: nguồn tra cứu chính thống, quy trình đối chiếu và lưu ý pháp lý. Kết quả chỉ mang tính tham khảo; xác nhận chính thức phải do cơ quan nhà nước có thẩm quyền.</p>
+          <button type="button" class="btn-check" id="btn-planning-report">Kiểm tra quy hoạch bằng ChatGPT</button>
+          <p id="planning-report-hint" class="hint" style="margin-top: 8px;">Cần nhập link Google Map và bấm «Kiểm tra vị trí trên bản đồ» trước.</p>
+          <div id="planning-report-loading" class="planning-report-loading hidden">Đang tổng hợp báo cáo...</div>
+          <div id="planning-report-error" class="coord-result error hidden" aria-live="polite"></div>
+          <div id="planning-report-content" class="planning-report-content hidden"></div>
+        </section>
+      </main>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="planning-check.js"></script>
+  </body>
+</html>

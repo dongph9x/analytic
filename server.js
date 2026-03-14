@@ -12,12 +12,14 @@ const {
   streamNewsToResponse,
   streamOutlookToResponse
 } = require('./services/contentService');
+const { streamPlanningReportToResponse, isConfigured: isPlanningConfigured } = require('./services/planningService');
 
 const app = express();
 const PORT = process.env.PORT || 3004;
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
+// API routes phải đăng ký trước express.static để POST/GET /api/* luôn do Express xử lý
 // Cache: khởi động = null để không trả dữ liệu cũ (12 tháng MM/YYYY). Chuẩn luôn 30 ngày DD/MM.
 let cache = {
   data: null,
@@ -262,6 +264,28 @@ app.get('/api/news', async (req, res) => {
   }
 });
 
+app.post('/api/planning-report', async (req, res) => {
+  try {
+    const lat = parseFloat(req.body?.lat);
+    const lng = parseFloat(req.body?.lng);
+    const mapLink = typeof req.body?.mapLink === 'string' ? req.body.mapLink.trim() || null : null;
+    if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return res.status(400).json({ error: 'Tọa độ không hợp lệ (cần lat, lng)' });
+    }
+    if (!isPlanningConfigured()) {
+      return res.status(503).json({ error: 'Chưa cấu hình OpenAI API key. Không thể tạo báo cáo.' });
+    }
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('X-Accel-Buffering', 'no');
+    if (res.flushHeaders) res.flushHeaders();
+    await streamPlanningReportToResponse(res, lat, lng, mapLink);
+  } catch (error) {
+    console.error('Error in /api/planning-report:', error);
+    if (!res.headersSent) res.status(500).json({ error: 'Lỗi server khi tạo báo cáo quy hoạch.' });
+  }
+});
+
 app.get('/api/outlook', async (req, res) => {
   const useStream = req.query.stream !== '0';
   if (useStream) {
@@ -286,6 +310,9 @@ app.get('/api/outlook', async (req, res) => {
     res.status(500).json({ ok: false, error: error.message, content: null });
   }
 });
+
+// Static files (sau API để /api/* không bị serve file)
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
