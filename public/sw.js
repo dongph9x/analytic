@@ -9,6 +9,7 @@ const PRECACHE = [
   '/api-auth.js',
   '/fengshui.html',
   '/fengshui.js',
+  '/qa.html',
   '/manifest.webmanifest',
   '/icons/icon.svg'
 ];

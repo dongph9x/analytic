@@ -17,6 +17,7 @@ const {
 const { streamPlanningReportToResponse, isConfigured: isPlanningConfigured } = require('./services/planningService');
 const { getInterestRates } = require('./services/interestRatesService');
 const { getFengshuiRecommendation } = require('./services/fengshuiService');
+const { askChatGPT } = require('./services/qaService');
 
 const app = express();
 const PORT = process.env.PORT || 3004;
@@ -493,6 +494,17 @@ app.post('/api/fengshui', requireApiAuth, async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error in /api/fengshui:', error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/qa', requireApiAuth, async (req, res) => {
+  try {
+    const question = typeof req.body?.question === 'string' ? req.body.question.trim() : '';
+    const result = await askChatGPT(question);
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /api/qa:', error);
     res.status(500).json({ ok: false, error: error.message });
   }
 });
