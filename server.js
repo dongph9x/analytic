@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const session = require('express-session');
 const path = require('path');
 const { crawlGoldPrice } = require('./crawlers/goldCrawler');
 const { crawlFuelPrice } = require('./crawlers/fuelCrawler');
@@ -17,7 +18,25 @@ const { streamPlanningReportToResponse, isConfigured: isPlanningConfigured } = r
 const app = express();
 const PORT = process.env.PORT || 3004;
 
+const API_AUTH_PASSWORD = process.env.API_AUTH_PASSWORD;
+const SESSION_SECRET = process.env.SESSION_SECRET;
+
 app.use(express.json());
+app.use(
+  session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { httpOnly: true, sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 }
+  })
+);
+
+/** Nếu đã cấu hình API_AUTH_PASSWORD thì yêu cầu session đã xác thực; không thì cho qua. */
+function requireApiAuth(req, res, next) {
+  if (!API_AUTH_PASSWORD || API_AUTH_PASSWORD.trim() === '') return next();
+  if (req.session && req.session.authenticated) return next();
+  res.status(401).json({ error: 'Yêu cầu xác thực', code: 'AUTH_REQUIRED' });
+}
 
 // API routes phải đăng ký trước express.static để POST/GET /api/* luôn do Express xử lý
 // Cache: khởi động = null để không trả dữ liệu cũ (12 tháng MM/YYYY). Chuẩn luôn 30 ngày DD/MM.
@@ -59,6 +78,31 @@ function build30Values(current, baseFallback, variation = 0.02) {
 }
 
 const minFuelValid = 5;
+
+// --- Xác thực API (pass cấu hình trong env) ---
+app.post('/api/auth', (req, res) => {
+  if (!API_AUTH_PASSWORD || API_AUTH_PASSWORD.trim() === '') {
+    return res.status(200).json({ ok: true });
+  }
+  const password = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
+  if (password === API_AUTH_PASSWORD) {
+    req.session.authenticated = true;
+    return res.json({ ok: true });
+  }
+  res.status(401).json({ error: 'Mật khẩu không đúng', code: 'AUTH_REQUIRED' });
+});
+
+app.get('/api/auth/check', (req, res) => {
+  if (!API_AUTH_PASSWORD || API_AUTH_PASSWORD.trim() === '') {
+    return res.json({ ok: true, authenticated: true });
+  }
+  if (req.session && req.session.authenticated) {
+    return res.json({ ok: true, authenticated: true });
+  }
+  res.status(401).json({ error: 'Yêu cầu xác thực', code: 'AUTH_REQUIRED' });
+});
+
+// --- API cần xác thực (khi đã cấu hình API_AUTH_PASSWORD) ---
 
 /**
  * Chỉ crawl PVOIL + Kim Tài Ngọc, trả về ngay để hiển thị bảng giá (không đợi ChatGPT).
@@ -218,7 +262,7 @@ async function getPricesData(forceRefresh = false) {
 }
 
 /** Chỉ crawl bảng giá (PVOIL + Kim Tài Ngọc), trả về nhanh để hiển thị bảng ngay. */
-app.get('/api/prices/current', async (req, res) => {
+app.get('/api/prices/current', requireApiAuth, async (req, res) => {
   try {
     const data = await getCurrentPricesFromCrawl();
     res.json(data);
@@ -228,7 +272,7 @@ app.get('/api/prices/current', async (req, res) => {
   }
 });
 
-app.get('/api/prices', async (req, res) => {
+app.get('/api/prices', requireApiAuth, async (req, res) => {
   try {
     const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
     const data = await getPricesData(forceRefresh);
@@ -239,7 +283,7 @@ app.get('/api/prices', async (req, res) => {
   }
 });
 
-app.get('/api/news', async (req, res) => {
+app.get('/api/news', requireApiAuth, async (req, res) => {
   const useStream = req.query.stream !== '0';
   if (useStream) {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -264,7 +308,7 @@ app.get('/api/news', async (req, res) => {
   }
 });
 
-app.post('/api/planning-report', async (req, res) => {
+app.post('/api/planning-report', requireApiAuth, async (req, res) => {
   try {
     const lat = parseFloat(req.body?.lat);
     const lng = parseFloat(req.body?.lng);
@@ -286,7 +330,7 @@ app.post('/api/planning-report', async (req, res) => {
   }
 });
 
-app.get('/api/outlook', async (req, res) => {
+app.get('/api/outlook', requireApiAuth, async (req, res) => {
   const useStream = req.query.stream !== '0';
   if (useStream) {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -316,5 +360,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  if (API_AUTH_PASSWORD && API_AUTH_PASSWORD.trim()) {
+    console.log('API auth enabled: API_AUTH_PASSWORD is set. Gọi API sẽ yêu cầu nhập mật khẩu.');
+  }
 });
 

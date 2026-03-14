@@ -116,12 +116,36 @@
     if (contentEl) contentEl.classList.add('hidden');
   }
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function linkify(text) {
+    return text.replace(
+      /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g,
+      function (_, url) {
+        var href = url.replace(/[.,;:)]+$/, '');
+        return '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(href) + '</a>';
+      }
+    );
+  }
+
+  function renderReportHtml(rawText) {
+    return linkify(escapeHtml(rawText)).replace(/\n/g, '<br>\n');
+  }
+
   function showPlanningReportContent(text) {
     var contentEl = document.getElementById('planning-report-content');
     var errorEl = document.getElementById('planning-report-error');
     if (errorEl) errorEl.classList.add('hidden');
     if (contentEl) {
-      contentEl.textContent = text || '';
+      contentEl.innerHTML = text ? renderReportHtml(text) : '';
       contentEl.classList.toggle('hidden', !text);
     }
   }
@@ -137,7 +161,7 @@
 
     var mapLinkInput = document.getElementById('input-map-link');
     var mapLink = (mapLinkInput && mapLinkInput.value && mapLinkInput.value.trim()) || null;
-    fetch('/api/planning-report', {
+    window.apiFetch('/api/planning-report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lat: lastCoords.lat, lng: lastCoords.lng, mapLink: mapLink })
@@ -161,14 +185,15 @@
         if (!contentEl) return;
         contentEl.classList.remove('hidden');
         var decoder = new TextDecoder();
+        var accumulated = '';
         function readNext() {
           reader.read().then(function (result) {
             if (result.done) {
               showPlanningReportLoading(false);
               return;
             }
-            var text = decoder.decode(result.value, { stream: true });
-            contentEl.textContent += text;
+            accumulated += decoder.decode(result.value, { stream: true });
+            contentEl.innerHTML = renderReportHtml(accumulated);
             contentEl.scrollTop = contentEl.scrollHeight;
             readNext();
           }).catch(function (err) {

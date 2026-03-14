@@ -24,7 +24,7 @@ function setCache(data) {
 
 async function fetchData(forceRefresh = false) {
   const url = forceRefresh ? '/api/prices?refresh=1' : '/api/prices';
-  const res = await fetch(url);
+  const res = await window.apiFetch(url);
   if (!res.ok) {
     throw new Error('Không thể tải dữ liệu từ API');
   }
@@ -33,7 +33,7 @@ async function fetchData(forceRefresh = false) {
 
 /** Gọi API chỉ crawl bảng giá (PVOIL + Kim Tài Ngọc), trả về nhanh để hiển thị bảng ngay. */
 async function fetchCurrentPrices() {
-  const res = await fetch('/api/prices/current');
+  const res = await window.apiFetch('/api/prices/current');
   if (!res.ok) {
     throw new Error('Không thể tải bảng giá hiện tại');
   }
@@ -159,7 +159,7 @@ async function loadData(forceRefresh = false) {
     // Nếu /current lỗi, đợi luôn full data.
   }
   try {
-    const res = await fetch(fullUrl);
+    const res = await window.apiFetch(fullUrl);
     if (!res.ok) throw new Error('Không thể tải dữ liệu từ API');
     const fullData = await res.json();
     rawData = fullData;

@@ -114,16 +114,20 @@ async function searchWeb(query, num = 10) {
   }
 }
 
-/** Tìm kiếm trên mạng các quyết định/quy hoạch đất đai, khoáng sản liên quan tới vùng. */
-async function searchPlanningForLocation(authoritativeRegion) {
+/**
+ * Tìm kiếm trước các quyết định/quy hoạch đất đai, khoáng sản của vùng (tỉnh, thành phố, huyện liên quan).
+ * Sau đó so sánh với vị trí người dùng để đưa ra kết quả.
+ */
+async function searchPlanningDecisionsForArea(authoritativeRegion) {
   if (!authoritativeRegion) return null;
   const province = authoritativeRegion.authoritative;
   const isLamDong = province.includes('Lâm Đồng');
   const queries = [
+    `quyết định quy hoạch đất đai khoáng sản ${isLamDong ? 'Bảo Lộc' : province}`,
+    `quy hoạch sử dụng đất ${isLamDong ? 'Bảo Lộc Bảo Lâm' : province} site:gov.vn`,
+    `quy hoạch khoáng sản ${isLamDong ? 'Bảo Lâm Lâm Đồng' : province}`,
+    isLamDong ? 'quy hoạch Lộc Tân Bảo Lộc Lâm Đồng' : `quy hoạch đất đai ${province}`,
     `quyết định quy hoạch ${province} site:gov.vn`,
-    `quy hoạch sử dụng đất ${province} site:gov.vn`,
-    isLamDong ? 'quyết định quy hoạch đất đai khoáng sản Lộc Tân Bảo Lộc Lâm Đồng' : `quy hoạch đất đai ${province}`,
-    `quy hoạch khoáng sản ${province}`,
     `cổng thông tin điện tử ${province} quy hoạch`
   ];
   const seen = new Set();
@@ -145,11 +149,13 @@ function buildPlanningPrompt(lat, lng, mapLink, authoritativeRegion, searchResul
     authoritativeRegion &&
     `\n\n[SỰ THẬT ĐỊA LÝ – BẮT BUỘC TUÂN THỦ: Vị trí theo link bản đồ thuộc tỉnh ${authoritativeRegion.authoritative} (${authoritativeRegion.detail}). Trong toàn bộ báo cáo chỉ được nêu tỉnh "${authoritativeRegion.authoritative}" và các cơ quan/nguồn tra cứu của tỉnh đó. Cấm nêu Bà Rịa - Vũng Tàu, Đồng Nai, Bình Dương hay tỉnh nào khác.]`;
 
+  const areaLabel = authoritativeRegion ? (authoritativeRegion.authoritative.includes('Lâm Đồng') ? 'Bảo Lộc, Bảo Lâm, Lộc Tân, Lâm Đồng' : authoritativeRegion.authoritative) : 'vùng';
+
   let searchBlock = '';
   if (searchResults && searchResults.length > 0) {
     searchBlock = `
 
-KẾT QUẢ TÌM KIẾM THỰC TẾ TRÊN MẠNG (các trang chính thống / quy hoạch):
+ĐÃ TÌM KIẾM TRƯỚC các quyết định/quy hoạch đất đai, khoáng sản của vùng ${areaLabel}. Kết quả tìm được (các trang chính thống / quy hoạch):
 ${searchResults
   .map(
     (r, i) =>
@@ -157,39 +163,29 @@ ${searchResults
   )
   .join('\n\n')}
 
-YÊU CẦU: Dựa TRỰC TIẾP trên kết quả tìm kiếm trên, rà soát và tổng hợp theo cấu trúc sau (trích từ nội dung tìm được, ghi rõ nguồn/link):
-- Các quyết định quy hoạch có liên quan: nêu rõ SỐ QUYẾT ĐỊNH (ví dụ 866/QĐ-TTg, 1194/QĐ-UBND, 1899/QĐ-UBND), tên/quy mô (quy hoạch khoáng sản, quy hoạch sử dụng đất, quy hoạch chung đô thị...), PHẠM VI ẢNH HƯỞNG (địa bàn: xã, huyện, diện tích nếu có), HỆ LỤY PHÁP LÝ (ví dụ: vướng cấp phép xây dựng, tách thửa, chuyển mục đích sử dụng đất; vướng quy hoạch khoáng sản bô xít...). Mỗi quyết định gắn với link nguồn từ kết quả.
-- Các dự án trọng điểm tác động tới quy hoạch (cao tốc, khai thác khoáng sản...) nếu có trong kết quả.
-- Lưu ý thực tế: ví dụ tra cứu mã "866" trên ứng dụng tra cứu quy hoạch hoặc tại Văn phòng Đăng ký đất đai địa phương để biết thửa đất có nằm trong vùng quy hoạch hay không. Ghi rõ nguồn (link).
-- Cổng thông tin chính thống có trong kết quả: liệt kê tên + URL (lamdong.gov.vn, Bộ Xây dựng, Sở TN&MT...).
-Nếu trong kết quả không có thông tin cụ thể cho địa điểm, nêu rõ và vẫn liệt kê nguồn để người dùng tự tra.`;
+YÊU CẦU: (1) Từ kết quả tìm kiếm trên, liệt kê các quyết định/quy hoạch đã tìm được (số quyết định, tên/quy mô, phạm vi ảnh hưởng, hệ lụy pháp lý, link nguồn). (2) SO SÁNH với vị trí người dùng (link Google Map): quyết định nào có khả năng ảnh hưởng tới vị trí này, vì sao. (3) Kết luận: vị trí có thể dính quy hoạch nào, cần tra cứu thêm ở đâu (VPĐKĐĐ, mã quy hoạch...). Ghi rõ nguồn/link.`;
   } else {
     searchBlock = `
 
-Không có kết quả tìm kiếm thực tế (chưa cấu hình tìm kiếm hoặc không trả về). Đưa ra danh sách nguồn tra cứu chính thống và quy trình người dùng cần tự tra cứu trên các cổng đó.`;
+Chưa có kết quả tìm kiếm (chưa cấu hình hoặc không trả về). Đưa ra danh sách nguồn tra cứu chính thống và quy trình người dùng tự tra cứu.`;
   }
 
-  return `Hãy kiểm tra mảnh đất tại vị trí theo link bản đồ sau có thuộc diện quy hoạch không. Dữ liệu quy hoạch cần tra soát từ các trang chính thống của Nhà nước.
+  return `Nhiệm vụ: Đã tìm kiếm trước các quyết định quy hoạch đất đai, khoáng sản của vùng ${areaLabel}. Bây giờ SO SÁNH với vị trí người dùng (link bản đồ) và đưa ra báo cáo.
 
 Dữ liệu đầu vào:
-- Link Google Map (vị trí cần kiểm tra): ${mapLink || 'Chưa cung cấp'}${regionFact || ''}${searchBlock}
+- Link Google Map (vị trí cần so sánh): ${mapLink || 'Chưa cung cấp'}${regionFact || ''}${searchBlock}
 
-Đưa ra báo cáo bằng tiếng Việt, có cấu trúc (trích nội dung từ kết quả tìm kiếm, ghi nguồn/link khi có):
+Đưa ra báo cáo bằng tiếng Việt, có cấu trúc:
 
-1. Vùng hành chính: tỉnh/thành, huyện/quận, xã/phường của địa điểm (đúng theo sự thật địa lý đã cho).
+1. Vùng hành chính của vị trí: tỉnh/thành, huyện/quận, xã/phường (đúng theo sự thật địa lý đã cho).
 
-2. Kết quả rà soát quy hoạch (từ kết quả tìm kiếm):
-   - Từng quyết định/quy hoạch liên quan: SỐ QUYẾT ĐỊNH (vd 866/QĐ-TTg, 1194/QĐ-UBND, 1899/QĐ-UBND), tên/quy mô, PHẠM VI ẢNH HƯỞNG (địa bàn, diện tích nếu có), HỆ LỤY PHÁP LÝ (vướng cấp phép xây dựng, tách thửa, chuyển mục đích, quy hoạch khoáng sản...). Ghi link nguồn.
-   - Các dự án trọng điểm ảnh hưởng (cao tốc, khai thác khoáng sản...) nếu có.
-   - Lưu ý thực tế: tra cứu mã 866 hoặc tại VPĐKĐĐ địa phương để biết thửa đất có trong vùng quy hoạch hay không; ghi nguồn.
-   - Nguồn chính thống: liệt kê cổng/trang (tên + URL) từ kết quả.
-   Nếu không tìm thấy thông tin cụ thể trong kết quả thì nêu rõ và liệt kê nguồn để người dùng tự tra.
+2. Các quyết định/quy hoạch đã tìm được cho vùng (từ kết quả tìm kiếm): liệt kê từng quyết định (số, tên, phạm vi ảnh hưởng, hệ lụy pháp lý), kèm link nguồn.
 
-3. Các loại quy hoạch có thể liên quan: quy hoạch sử dụng đất, khoáng sản, xây dựng, đô thị, chi tiết... và ý nghĩa với mua bán/sử dụng đất.
+3. So sánh với vị trí: trong các quyết định trên, quyết định nào có khả năng ảnh hưởng tới vị trí này (theo địa bàn, ranh giới nêu trong kết quả). Nếu không đủ thông tin để kết luận, nêu rõ và gợi ý cách tra cứu (VPĐKĐĐ, mã quy hoạch, cổng...).
 
-4. Quy trình nên thực hiện: tra cứu trên cổng quy hoạch, liên hệ Sở TN&MT, VPĐKĐĐ, xin xác nhận chính thức.
+4. Dự án trọng điểm ảnh hưởng (cao tốc, khai thác khoáng sản...) nếu có trong kết quả và liên quan vị trí.
 
-5. Lưu ý pháp lý: chỉ cơ quan nhà nước mới xác nhận chính thức; báo cáo chỉ tham khảo.
+5. Lưu ý: chỉ cơ quan nhà nước mới xác nhận chính thức; báo cáo chỉ tham khảo. Nguồn chính thống (tên + URL) từ kết quả tìm kiếm.
 
 Trả lời bằng văn bản thuần, đánh số 1., 2., ... không dùng markdown code block.`;
 }
@@ -207,7 +203,7 @@ async function streamPlanningReportToResponse(res, lat, lng, mapLink) {
   const authoritativeRegion = getVietnamAuthoritativeRegion(lat, lng);
   let searchResults = null;
   if (SERPER_API_KEY && SERPER_API_KEY.trim()) {
-    searchResults = await searchPlanningForLocation(authoritativeRegion);
+    searchResults = await searchPlanningDecisionsForArea(authoritativeRegion);
   }
 
   try {
