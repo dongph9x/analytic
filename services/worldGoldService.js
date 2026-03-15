@@ -10,10 +10,19 @@ const GOLD_API_URL = 'https://api.gold-api.com/price/XAU';
 const KITCO_URL = 'https://www.kitco.com/market/';
 
 const BROWSER_HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
   'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
-  'Referer': 'https://vn.investing.com/',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Referer': 'https://www.google.com/',
+  'Sec-Ch-Ua': '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+  'Sec-Ch-Ua-Mobile': '?0',
+  'Sec-Ch-Ua-Platform': '"Windows"',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'cross-site',
+  'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1',
   'Cache-Control': 'no-cache',
   'Pragma': 'no-cache'
 };
@@ -27,7 +36,8 @@ async function fetchFromInvesting() {
     const res = await axios.get(INVESTING_URL, {
       timeout: 15000,
       headers: BROWSER_HEADERS,
-      maxRedirects: 5
+      maxRedirects: 5,
+      validateStatus: (status) => status === 200
     });
     const html = res.data;
     const $ = cheerio.load(html);
@@ -89,7 +99,12 @@ async function fetchFromInvesting() {
       return { spotBuy, spotSell, changePercent, unit: 'USD/oz', source: 'Investing.com (vn.investing.com)' };
     }
   } catch (err) {
-    console.warn('World gold (Investing.com):', err.message);
+    const code = err.response && err.response.status;
+    if (code === 403) {
+      console.warn('World gold (Investing.com): 403 Forbidden – trang chặn request, dùng nguồn dự phòng (Gold API/Kitco).');
+    } else {
+      console.warn('World gold (Investing.com):', err.message);
+    }
   }
   return { spotBuy: null, spotSell: null, changePercent: null, unit: 'USD/oz', source: '' };
 }

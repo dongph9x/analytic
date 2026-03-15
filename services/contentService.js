@@ -9,7 +9,22 @@ const axios = require('axios');
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const SERPER_API_KEY = process.env.SERPER_API_KEY;
 
-/** Gọi Serper News API, trả về [{ title, link, snippet, source }]. */
+/** Ngày hiện tại theo múi giờ Việt Nam (UTC+7) để lọc tin "trong ngày". */
+function getVietnamTodayContext() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+  return {
+    dateStr,
+    instruction: `Ngày hiện tại theo múi giờ Việt Nam (UTC+7) là ${dateStr}. Chỉ chọn tin đăng hoặc xảy ra TRONG NGÀY NÀY (từ 0h00 đến 24h00 giờ Việt Nam). KHÔNG đưa tin từ ngày hôm trước.`
+  };
+}
+
+/** Gọi Serper News API, trả về [{ title, link, snippet, source, date? }]. */
 async function searchNews(query, num = 8) {
   if (!SERPER_API_KEY || !SERPER_API_KEY.trim()) return [];
   try {
@@ -29,7 +44,8 @@ async function searchNews(query, num = 8) {
       title: n.title || '',
       link: n.link || n.url || '',
       snippet: n.snippet || n.description || '',
-      source: n.source || ''
+      source: n.source || '',
+      date: n.date || n.publishedDate || ''
     }));
   } catch (err) {
     console.warn('Serper news search error:', err.message);
@@ -113,6 +129,83 @@ Trả về ĐÚNG MỘT JSON với cấu trúc:
 Yêu cầu: MỖI item phải có sourceName và sourceUrl là MỘT trong các bài đã cho (copy đúng link). Không bịa link. Tối đa 5-7 nhóm, mỗi nhóm 2-4 mục. Ngôn ngữ nội dung: tiếng Việt. Chỉ trả về JSON thuần, không markdown, không \`\`\`json.`;
 }
 
+/** Tin tổng hợp: kinh tế, chính trị trong ngày từ các trang chính thống. Serper trả về [{ title, link, snippet, source }]. */
+async function fetchSummarySources() {
+  const queries = [
+    'kinh tế Việt Nam hôm nay',
+    'chính trị thế giới tin mới',
+    'Fed lãi suất Mỹ',
+    'lạm phát kinh tế',
+    'VN economy news today',
+    'world politics news today'
+  ];
+  const seen = new Set();
+  const all = [];
+  for (const q of queries) {
+    const results = await searchNews(q, 5);
+    for (const r of results) {
+      if (r.link && !seen.has(r.link)) {
+        seen.add(r.link);
+        all.push(r);
+      }
+    }
+  }
+  return all;
+}
+
+function buildSummaryPromptNoSources() {
+  const { instruction } = getVietnamTodayContext();
+  return `Bạn là biên tập viên tin tức. Tổng hợp tin nổi bật MỚI NHẤT về kinh tế và chính trị (Việt Nam và thế giới) từ các nguồn chính thống (Reuters, Bloomberg, VnExpress, Thanh Niên, BBC, AFP...).
+
+QUAN TRỌNG - THỜI GIAN: ${instruction}
+
+Trả về ĐÚNG MỘT JSON:
+{
+  "items": [
+    {
+      "title": "Tiêu đề bài viết (ngắn gọn)",
+      "summary": "1-3 câu tóm tắt nội dung chính (tiếng Việt).",
+      "sourceName": "Tên nguồn (vd: Reuters, VnExpress)"
+    }
+  ]
+}
+
+Yêu cầu: 8-15 mục, mỗi mục có title, summary, sourceName. Chỉ tin trong ngày theo giờ VN, ưu tiên tin nổi bật. Ngôn ngữ: tiếng Việt. Chỉ trả về JSON thuần, không markdown, không \`\`\`json.`;
+}
+
+function buildSummaryPromptWithSources(articles) {
+  const { instruction } = getVietnamTodayContext();
+  const block = articles
+    .map(
+      (a, i) => {
+        const datePart = a.date ? `   Ngày đăng (nếu có): ${a.date}` : '';
+        return `[${i + 1}] Nguồn: ${a.source || 'Web'}\n   Tiêu đề: ${a.title}\n   Link: ${a.link}\n   Mô tả: ${a.snippet}${datePart ? '\n' + datePart : ''}`;
+      }
+    )
+    .join('\n\n');
+  return `Bạn là biên tập viên tin tức. Dưới đây là các bài báo/tin đã tìm được (từ Google News). Nhiệm vụ: chọn ra 8-15 tin NỔI BẬT NHẤT về kinh tế và chính trị (VN và thế giới), tóm tắt ngắn và BẮT BUỘC gắn đúng link từ danh sách.
+
+QUAN TRỌNG - THỜI GIAN: ${instruction}
+Chỉ chọn các bài đăng trong ngày này (theo giờ VN). Nếu bài có thông tin ngày đăng và là ngày hôm trước thì BỎ QUA, không đưa vào danh sách.
+
+Các bài đã tìm được:
+${block}
+
+Trả về ĐÚNG MỘT JSON:
+{
+  "items": [
+    {
+      "title": "Tiêu đề bài (có thể rút gọn từ tiêu đề gốc)",
+      "summary": "1-3 câu tóm tắt nội dung (tiếng Việt).",
+      "link": "Link chính xác lấy từ danh sách trên",
+      "sourceName": "Tên nguồn (lấy từ cột Nguồn trên)"
+    }
+  ]
+}
+
+Yêu cầu: MỖI item phải có title, summary, link (copy đúng từ danh sách), sourceName. Chỉ đưa tin trong ngày VN. 8-15 mục. Ngôn ngữ: tiếng Việt. Chỉ trả về JSON thuần, không markdown, không \`\`\`json.`;
+}
+
 const OUTLOOK_PROMPT_STREAM = `Bạn là chuyên gia phân tích xu hướng giá vàng, xăng, dầu. Đưa ra nhận định ngắn gọn (tiếng Việt) theo hai khung thời gian.
 Trả về bằng markdown với cấu trúc:
 ## Ngắn hạn (1–3 tháng)
@@ -147,6 +240,7 @@ Chỉ trả về JSON thuần, không markdown, không \`\`\`json.`;
 
 let newsCache = { data: null, timestamp: null, ttl: 60 * 60 * 1000 }; // 1 giờ
 let outlookCache = { data: null, timestamp: null, ttl: 60 * 60 * 1000 };
+let summaryCache = { data: null, timestamp: null, ttl: 60 * 60 * 1000 };
 
 function isConfigured() {
   return !!(OPENAI_API_KEY && OPENAI_API_KEY.trim());
@@ -283,9 +377,54 @@ async function streamOutlookToResponse(res) {
   res.end();
 }
 
+async function getSummaryContent(forceRefresh = false) {
+  if (!isConfigured()) {
+    return { ok: false, error: 'Chưa cấu hình OPENAI_API_KEY', content: null };
+  }
+  const now = Date.now();
+  if (!forceRefresh && summaryCache.data && summaryCache.timestamp && now - summaryCache.timestamp < summaryCache.ttl) {
+    return { ok: true, content: summaryCache.data };
+  }
+  try {
+    const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+    let prompt = buildSummaryPromptNoSources();
+    const articles = await fetchSummarySources();
+    if (articles.length > 0) {
+      prompt = buildSummaryPromptWithSources(articles);
+    }
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Bạn chỉ trả lời bằng JSON hợp lệ.' },
+        { role: 'user', content: prompt }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.4
+    });
+    const raw = completion.choices[0]?.message?.content;
+    if (!raw) return { ok: false, error: 'Empty response', content: null };
+    const parsed = JSON.parse(raw);
+    const items = Array.isArray(parsed.items) ? parsed.items : [];
+    const normalized = { items: items.map((it) => ({
+      title: it.title || '',
+      summary: it.summary || '',
+      link: it.link || null,
+      sourceName: it.sourceName || ''
+    })) };
+    summaryCache.data = normalized;
+    summaryCache.timestamp = now;
+    return { ok: true, content: normalized };
+  } catch (err) {
+    console.error('Content service summary error:', err.message);
+    if (summaryCache.data) return { ok: true, content: summaryCache.data };
+    return { ok: false, error: err.message, content: null };
+  }
+}
+
 module.exports = {
   getNewsContent,
   getOutlookContent,
+  getSummaryContent,
   streamNewsToResponse,
   streamOutlookToResponse,
   isContentConfigured: isConfigured

@@ -2,14 +2,20 @@ FROM node:20-alpine
 
 WORKDIR /usr/src/app
 
-# Biến môi trường (ví dụ OPENAI_API_KEY) được truyền qua docker-compose env_file, không copy .env vào image.
 COPY package.json package-lock.json* ./
 
-RUN npm install --production
+# Cài đủ deps (kể cả dev) để build TypeScript
+RUN npm install
 
 COPY . .
 
+# Build TypeScript → dist/ (server.ts có /api/health, webhook, ...)
+RUN npm run build
+
+# Chỉ giữ production deps để chạy (optional: giảm kích thước image)
+RUN npm prune --production
+
 EXPOSE 3004
 
-CMD ["npm", "start"]
+CMD ["node", "dist/server.js"]
 

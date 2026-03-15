@@ -1,7 +1,7 @@
 /**
  * Service Worker – PWA: cache tĩnh, API luôn qua mạng.
  */
-const CACHE_NAME = 'analytic-pwa-v1';
+const CACHE_NAME = 'analytic-pwa-v2';
 const PRECACHE = [
   '/',
   '/app.js',
@@ -10,6 +10,7 @@ const PRECACHE = [
   '/fengshui.js',
   '/qa',
   '/exchange',
+  '/summary',
   '/manifest.webmanifest',
   '/icons/icon.svg'
 ];

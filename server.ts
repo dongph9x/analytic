@@ -13,6 +13,7 @@ const { fetchKimTaiNgocGold } = require('./services/kimTaiNgocGold');
 const {
   getNewsContent,
   getOutlookContent,
+  getSummaryContent,
   streamNewsToResponse,
   streamOutlookToResponse
 } = require('./services/contentService');
@@ -30,12 +31,17 @@ app.set('trust proxy', 1);
 const API_AUTH_PASSWORD = process.env.API_AUTH_PASSWORD as string | undefined;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
+/** Secret cho webhook (n8n, cron bên ngoài). Nếu set thì POST /api/webhook/trigger bắt buộc gửi đúng secret. */
+const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET as string | undefined;
 
 /** Khi chạy từ dist/server.js thì public ở ../public; khi chạy server.ts ở root thì public ở ./public. */
 const isRunningFromDist = path.basename(__dirname) === 'dist';
 const publicDir = isRunningFromDist ? path.join(__dirname, '..', 'public') : path.join(__dirname, 'public');
 const dataDir = isRunningFromDist ? path.join(__dirname, '..', 'data') : path.join(__dirname, 'data');
 const NEWS_FILE = path.join(dataDir, 'news.json');
+const SUMMARY_FILE = path.join(dataDir, 'summary.json');
+const OUTLOOK_FILE = path.join(dataDir, 'outlook.json');
+const PRICES_FILE = path.join(dataDir, 'prices.json');
 const NEWS_JOB_INTERVAL_MS = 10 * 60 * 1000; // 10 phút
 
 /** Lấy IP client (ưu tiên X-Forwarded-For khi đứng sau proxy). */
@@ -113,6 +119,108 @@ async function runNewsJob(): Promise<void> {
     }
   } catch (err) {
     console.warn('Job tin tức lỗi:', (err as Error).message);
+  }
+}
+
+/** Đọc tổng hợp từ file. Trả về { ok, content, latest_time } hoặc null. */
+function readSummaryFromFile(): { ok: boolean; content: unknown; latest_time?: string } | null {
+  try {
+    if (!fs.existsSync(SUMMARY_FILE)) return null;
+    const raw = fs.readFileSync(SUMMARY_FILE, 'utf8');
+    const data = JSON.parse(raw) as { ok?: boolean; content?: unknown; latest_time?: string };
+    if (data && typeof data.ok === 'boolean' && data.content != null) {
+      return { ok: data.ok, content: data.content, latest_time: data.latest_time };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ghi kết quả tổng hợp ra file. */
+function writeSummaryToFile(result: { ok: boolean; content: unknown }): void {
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    const toWrite = { ...result, latest_time: new Date().toISOString() };
+    fs.writeFileSync(SUMMARY_FILE, JSON.stringify(toWrite, null, 2), 'utf8');
+    console.log('Tổng hợp đã lưu vào file:', SUMMARY_FILE);
+  } catch (err) {
+    console.warn('Ghi file tổng hợp lỗi:', (err as Error).message);
+  }
+}
+
+async function runSummaryJob(): Promise<void> {
+  try {
+    const result = await getSummaryContent(true);
+    if (result && result.ok && result.content) {
+      writeSummaryToFile(result);
+    }
+  } catch (err) {
+    console.warn('Job tổng hợp lỗi:', (err as Error).message);
+  }
+}
+
+/** Đọc nhận định từ file. Trả về { ok, content, latest_time } hoặc null. */
+function readOutlookFromFile(): { ok: boolean; content: unknown; latest_time?: string } | null {
+  try {
+    if (!fs.existsSync(OUTLOOK_FILE)) return null;
+    const raw = fs.readFileSync(OUTLOOK_FILE, 'utf8');
+    const data = JSON.parse(raw) as { ok?: boolean; content?: unknown; latest_time?: string };
+    if (data && typeof data.ok === 'boolean' && data.content != null) {
+      return { ok: data.ok, content: data.content, latest_time: data.latest_time };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ghi nhận định ra file. */
+function writeOutlookToFile(result: { ok: boolean; content: unknown }): void {
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    const toWrite = { ...result, latest_time: new Date().toISOString() };
+    fs.writeFileSync(OUTLOOK_FILE, JSON.stringify(toWrite, null, 2), 'utf8');
+    console.log('Nhận định đã lưu vào file:', OUTLOOK_FILE);
+  } catch (err) {
+    console.warn('Ghi file nhận định lỗi:', (err as Error).message);
+  }
+}
+
+async function runOutlookJob(): Promise<void> {
+  try {
+    const result = await getOutlookContent(true);
+    if (result && result.ok && result.content) {
+      writeOutlookToFile(result);
+    }
+  } catch (err) {
+    console.warn('Job nhận định lỗi:', (err as Error).message);
+  }
+}
+
+/** Đọc giá từ file (n8n webhook ghi khi cập nhật). */
+function readPricesFromFile(): PricesData | null {
+  try {
+    if (!fs.existsSync(PRICES_FILE)) return null;
+    const raw = fs.readFileSync(PRICES_FILE, 'utf8');
+    const data = JSON.parse(raw) as PricesData;
+    if (data && isValidCache(data)) {
+      data.labels = getLast30DayLabels();
+      return data;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ghi giá ra file (gọi sau khi getPricesData cập nhật cache). */
+function writePricesToFile(data: PricesData): void {
+  try {
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(PRICES_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('Ghi file giá lỗi:', (err as Error).message);
   }
 }
 
@@ -367,6 +475,7 @@ async function getPricesData(forceRefresh = false): Promise<PricesData> {
         } catch (_) {}
         cache.data = chatGPTData as PricesData;
         cache.timestamp = now;
+        writePricesToFile(cache.data);
         return chatGPTData as PricesData;
       }
       console.log('ChatGPT unavailable, falling back to crawl...');
@@ -412,6 +521,7 @@ async function getPricesData(forceRefresh = false): Promise<PricesData> {
     }
     cache.data = data;
     cache.timestamp = now;
+    writePricesToFile(data);
     return data;
   } catch (error) {
     console.error('Error getting prices data:', error);
@@ -446,11 +556,29 @@ async function getPricesData(forceRefresh = false): Promise<PricesData> {
   }
 }
 
+/** Dữ liệu giá cho web: chỉ đọc cache hoặc file (n8n webhook cập nhật). Không gọi crawl/ChatGPT. */
+function getPricesForWeb(): PricesData | null {
+  if (cache.data && isValidCache(cache.data)) {
+    cache.data.labels = getLast30DayLabels();
+    return cache.data;
+  }
+  return readPricesFromFile();
+}
+
+/** API giá (trang chủ): chỉ đọc cache/file. n8n webhook cập nhật theo lịch. */
 app.get('/api/prices/current', requireApiAuth, async (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
-    const data = await getCurrentPricesFromCrawl();
-    res.json(data);
+    const data = getPricesForWeb();
+    if (data) return res.json(data);
+    res.status(503).json({
+      error: 'Chưa có dữ liệu giá. n8n cập nhật theo lịch.',
+      labels: getLast30DayLabels(),
+      gold: { label: '', unit: 'triệu VND/lượng', values: [], current: null, currentSell: null },
+      fuelRON95: { label: '', unit: 'nghìn VND/lít', values: [], current: null },
+      fuelDO: { label: '', unit: 'nghìn VND/lít', values: [], current: null },
+      lastUpdate: new Date().toISOString()
+    });
   } catch (error) {
     console.error('Error in /api/prices/current:', error);
     res.status(500).json({ error: 'Failed to fetch current prices' });
@@ -460,16 +588,23 @@ app.get('/api/prices/current', requireApiAuth, async (req: Request, res: Respons
 app.get('/api/prices', requireApiAuth, async (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
-    const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
-    const data = await getPricesData(forceRefresh);
-    notifyDiscordPrices(data);
-    res.json(data);
+    const data = getPricesForWeb();
+    if (data) return res.json(data);
+    res.status(503).json({
+      error: 'Chưa có dữ liệu giá. n8n cập nhật theo lịch.',
+      labels: getLast30DayLabels(),
+      gold: { label: '', unit: 'triệu VND/lượng', values: [], current: null, currentSell: null },
+      fuelRON95: { label: '', unit: 'nghìn VND/lít', values: [], current: null },
+      fuelDO: { label: '', unit: 'nghìn VND/lít', values: [], current: null },
+      lastUpdate: new Date().toISOString()
+    });
   } catch (error) {
     console.error('Error in /api/prices:', error);
     res.status(500).json({ error: 'Failed to fetch prices data' });
   }
 });
 
+/** API tin tức: chỉ đọc từ file (n8n webhook cập nhật theo lịch). Không chạy job. */
 app.get('/api/news', requireApiAuth, async (req: Request, res: Response) => {
   const useStream = req.query.stream === '1';
   if (useStream) {
@@ -486,16 +621,9 @@ app.get('/api/news', requireApiAuth, async (req: Request, res: Response) => {
     return;
   }
   try {
-    let fromFile = readNewsFromFile();
-    if (fromFile && !isNewsStale(fromFile)) {
-      return res.json(fromFile);
-    }
-    await runNewsJob();
-    fromFile = readNewsFromFile();
+    const fromFile = readNewsFromFile();
     if (fromFile) return res.json(fromFile);
-    const result = await getNewsContent(false);
-    if (result && result.ok && result.content) writeNewsToFile(result);
-    res.json(result || { ok: false, error: 'Không có dữ liệu tin tức', content: null });
+    res.json({ ok: false, error: 'Chưa có dữ liệu tin tức. n8n cập nhật theo lịch.', content: null });
   } catch (error) {
     console.error('Error in /api/news:', error);
     res.status(500).json({ ok: false, error: (error as Error).message, content: null });
@@ -525,8 +653,9 @@ app.post('/api/planning-report', requireApiAuth, async (req: Request, res: Respo
   }
 });
 
+/** API nhận định: chỉ đọc từ file (n8n webhook cập nhật theo lịch, cùng lịch tin tức). Không chạy job. */
 app.get('/api/outlook', requireApiAuth, async (req: Request, res: Response) => {
-  const useStream = req.query.stream !== '0';
+  const useStream = req.query.stream === '1';
   if (useStream) {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
@@ -541,14 +670,105 @@ app.get('/api/outlook', requireApiAuth, async (req: Request, res: Response) => {
     return;
   }
   try {
-    const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
-    const result = await getOutlookContent(forceRefresh);
-    res.json(result);
+    const fromFile = readOutlookFromFile();
+    if (fromFile) return res.json(fromFile);
+    res.json({ ok: false, error: 'Chưa có dữ liệu nhận định. n8n cập nhật theo lịch.', content: null });
   } catch (error) {
     console.error('Error in /api/outlook:', error);
     res.status(500).json({ ok: false, error: (error as Error).message, content: null });
   }
 });
+
+/** API tổng hợp: chỉ đọc từ file (n8n webhook cập nhật theo lịch). Không chạy job. */
+app.get('/api/summary', requireApiAuth, async (req: Request, res: Response) => {
+  try {
+    const fromFile = readSummaryFromFile();
+    if (fromFile) return res.json(fromFile);
+    res.json({ ok: false, error: 'Chưa có dữ liệu tổng hợp. n8n cập nhật theo lịch.', content: null });
+  } catch (error) {
+    console.error('Error in /api/summary:', error);
+    res.status(500).json({ ok: false, error: (error as Error).message, content: null });
+  }
+});
+
+/** Kiểm tra app có sống không (GET, dùng test kết nối từ n8n hoặc browser). */
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.json({ ok: true, service: 'analytic-chart', time: new Date().toISOString() });
+});
+
+/** Webhook cho n8n / cron: kích hoạt job tin tức, tổng hợp hoặc làm mới cache giá. Trả về ngay, chạy job nền (tránh timeout n8n). Xác thực bằng N8N_WEBHOOK_SECRET. */
+app.post('/api/webhook/trigger', async (req: Request, res: Response) => {
+  const secret =
+    (req.headers['x-webhook-secret'] as string)?.trim() ||
+    (typeof req.body?.secret === 'string' ? req.body.secret.trim() : '');
+  if (N8N_WEBHOOK_SECRET && N8N_WEBHOOK_SECRET.trim() && secret !== N8N_WEBHOOK_SECRET.trim()) {
+    return res.status(401).json({ ok: false, error: 'Webhook secret không hợp lệ' });
+  }
+  const job = (req.body?.job ?? req.query?.job ?? 'all') as string;
+  const normalized = String(job).toLowerCase().trim();
+  if (normalized !== 'news' && normalized !== 'summary' && normalized !== 'outlook' && normalized !== 'prices' && normalized !== 'all' && normalized !== '') {
+    return res.status(400).json({ ok: false, error: 'job phải là news, summary, outlook, prices hoặc all' });
+  }
+  // Chạy job ở background, trả về ngay để n8n không bị timeout
+  const run = (): void => {
+    if (normalized === 'news') {
+      runNewsJob().catch((err) => console.error('Webhook job news:', err));
+    } else if (normalized === 'summary') {
+      runSummaryJob().catch((err) => console.error('Webhook job summary:', err));
+    } else if (normalized === 'outlook') {
+      runOutlookJob().catch((err) => console.error('Webhook job outlook:', err));
+    } else if (normalized === 'prices') {
+      getPricesData(true).catch((err) => console.error('Webhook job prices:', err));
+    } else {
+      runNewsJob().catch((err) => console.error('Webhook job news:', err));
+      runSummaryJob().catch((err) => console.error('Webhook job summary:', err));
+      runOutlookJob().catch((err) => console.error('Webhook job outlook:', err));
+      getPricesData(true).catch((err) => console.error('Webhook job prices:', err));
+    }
+  };
+  setImmediate(run);
+  return res.status(202).json({ ok: true, job: normalized || 'all', message: 'Đã đưa job vào hàng đợi, đang chạy nền' });
+});
+
+/** GET /api/webhook/trigger trả 405 để test đúng path (webhook chỉ nhận POST). */
+app.get('/api/webhook/trigger', (_req: Request, res: Response) => {
+  res.status(405).json({
+    ok: false,
+    error: 'Method Not Allowed',
+    message: 'Webhook chỉ chấp nhận POST. Dùng: POST /api/webhook/trigger với body JSON { "job": "news" | "summary" | "outlook" | "prices" | "all" }'
+  });
+});
+
+/** Webhook riêng từng job (n8n: mỗi chức năng một URL, không cần body). */
+function registerWebhookJobRoute(job: 'news' | 'summary' | 'outlook' | 'prices' | 'all'): void {
+  app.post(`/api/webhook/trigger/${job}`, async (req: Request, res: Response) => {
+    const secret =
+      (req.headers['x-webhook-secret'] as string)?.trim() ||
+      (typeof req.body?.secret === 'string' ? req.body.secret.trim() : '');
+    if (N8N_WEBHOOK_SECRET && N8N_WEBHOOK_SECRET.trim() && secret !== N8N_WEBHOOK_SECRET.trim()) {
+      return res.status(401).json({ ok: false, error: 'Webhook secret không hợp lệ' });
+    }
+    const run = (): void => {
+      if (job === 'news') runNewsJob().catch((err) => console.error('Webhook job news:', err));
+      else if (job === 'summary') runSummaryJob().catch((err) => console.error('Webhook job summary:', err));
+      else if (job === 'outlook') runOutlookJob().catch((err) => console.error('Webhook job outlook:', err));
+      else if (job === 'prices') getPricesData(true).catch((err) => console.error('Webhook job prices:', err));
+      else {
+        runNewsJob().catch((err) => console.error('Webhook job news:', err));
+        runSummaryJob().catch((err) => console.error('Webhook job summary:', err));
+        runOutlookJob().catch((err) => console.error('Webhook job outlook:', err));
+        getPricesData(true).catch((err) => console.error('Webhook job prices:', err));
+      }
+    };
+    setImmediate(run);
+    return res.status(202).json({ ok: true, job, message: 'Đã đưa job vào hàng đợi, đang chạy nền' });
+  });
+}
+registerWebhookJobRoute('news');
+registerWebhookJobRoute('summary');
+registerWebhookJobRoute('outlook');
+registerWebhookJobRoute('prices');
+registerWebhookJobRoute('all');
 
 app.post('/api/fengshui', requireApiAuth, async (req: Request, res: Response) => {
   try {
@@ -611,6 +831,11 @@ app.get('/:page', (req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Service Worker: luôn revalidate để trình duyệt nhận bản mới khi deploy (đổi CACHE_NAME trong sw.js).
+app.get('/sw.js', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-cache, max-age=0');
+  res.sendFile(path.join(publicDir, 'sw.js'));
+});
 app.use(express.static(publicDir));
 
 app.listen(PORT, () => {
@@ -619,7 +844,11 @@ app.listen(PORT, () => {
     console.log('API auth enabled: API_AUTH_PASSWORD is set. Gọi API sẽ yêu cầu nhập mật khẩu.');
   }
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-  setTimeout(() => runNewsJob(), 8000);
-  setInterval(runNewsJob, NEWS_JOB_INTERVAL_MS);
-  console.log('Job tin tức: chạy sau 8s, sau đó mỗi 10 phút.');
+  const pricesFromFile = readPricesFromFile();
+  if (pricesFromFile) {
+    cache.data = pricesFromFile;
+    cache.timestamp = Date.now();
+    console.log('Đã nạp giá từ file (n8n cập nhật). Web chỉ đọc cache/file.');
+  }
+  console.log('Cập nhật dữ liệu: dùng n8n webhook POST /api/webhook/trigger/news, /summary, /prices hoặc /all.');
 });

@@ -67,6 +67,8 @@ docker compose up -d
 
 Truy cập: `http://localhost:3004`
 
+- **n8n** (tự động hóa workflow) chạy tại `http://localhost:5678`. Cấu hình và webhook trigger: xem [docs/INTEGRATION_N8N.md](docs/INTEGRATION_N8N.md).
+
 ### Cấu trúc dự án
 
 | Thành phần | Mô tả |

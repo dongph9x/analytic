@@ -87,7 +87,14 @@ function renderTable() {
   if (!el) return;
 
   if (!rawData || !rawData.gold || !rawData.fuelRON95 || !rawData.fuelDO) {
-    el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Không có dữ liệu. Kiểm tra kết nối hoặc thử Làm mới.</td></tr>';
+    const msg = rawData && rawData.error ? rawData.error : 'Không có dữ liệu. Kiểm tra kết nối.';
+    el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">' + msg + '</td></tr>';
+    if (lastUpdateEl) lastUpdateEl.textContent = '--';
+    return;
+  }
+  if (!rawData.gold.values || rawData.gold.values.length === 0) {
+    const msg = rawData.error || 'Chưa có dữ liệu. n8n cập nhật theo lịch.';
+    el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">' + msg + '</td></tr>';
     if (lastUpdateEl) lastUpdateEl.textContent = '--';
     return;
   }
@@ -236,24 +243,43 @@ function renderBankLoanRatesTable() {
     .join('');
 }
 
-async function loadData(forceRefresh = false, fromBackgroundJob = false) {
+/**
+ * @param {boolean} forceRefresh
+ * @param {boolean} fromBackgroundJob
+ * @param {{ resolveAfterFirst?: boolean }} [opts] - Nếu resolveAfterFirst: true, resolve ngay khi có data từ /current, full fetch chạy nền (dùng cho nút Làm mới để tắt loading sớm).
+ */
+async function loadData(forceRefresh = false, fromBackgroundJob = false, opts = {}) {
+  const resolveAfterFirst = opts.resolveAfterFirst === true;
   let fullUrl = forceRefresh ? '/api/prices?refresh=1' : '/api/prices';
   if (fromBackgroundJob) fullUrl += (fullUrl.includes('?') ? '&' : '?') + 'notify_discord=1';
   // Hiển thị bảng ngay khi có dữ liệu crawl (không đợi ChatGPT).
   try {
-    const currentData = await fetchCurrentPrices();
+    const resCurrent = await window.apiFetch('/api/prices/current');
+    const currentData = await resCurrent.json();
     rawData = currentData;
-    setCache(rawData);
+    if (currentData && !currentData.error) setCache(rawData);
     renderTable();
+    if (resolveAfterFirst) {
+      window.apiFetch(fullUrl)
+        .then((res) => res.json().then((fullData) => ({ ok: res.ok, data: fullData })))
+        .then(({ ok, data: fullData }) => {
+          rawData = fullData;
+          if (ok && fullData && !fullData.error) setCache(rawData);
+          renderTable();
+        })
+        .catch((err) => {
+          if (!rawData) console.warn('Full prices fetch failed:', err);
+        });
+      return;
+    }
   } catch (_) {
     // Nếu /current lỗi, đợi luôn full data.
   }
   try {
     const res = await window.apiFetch(fullUrl);
-    if (!res.ok) throw new Error('Không thể tải dữ liệu từ API');
     const fullData = await res.json();
     rawData = fullData;
-    setCache(rawData);
+    if (res.ok && fullData && !fullData.error) setCache(rawData);
     renderTable();
   } catch (err) {
     if (!rawData) throw err;
@@ -285,7 +311,7 @@ async function init() {
       btn.classList.add('loading');
       if (el) el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:16px;">Đang tải...</td></tr>';
       try {
-        await loadData(true);
+        await loadData(true, false, { resolveAfterFirst: true });
       } catch (err) {
         console.error(err);
         if (el) el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Không thể tải lại dữ liệu.</td></tr>';

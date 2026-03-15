@@ -11,6 +11,7 @@ const { fetchKimTaiNgocGold } = require('./services/kimTaiNgocGold');
 const {
   getNewsContent,
   getOutlookContent,
+  getSummaryContent,
   streamNewsToResponse,
   streamOutlookToResponse
 } = require('./services/contentService');
@@ -27,6 +28,7 @@ app.set('trust proxy', 1);
 const API_AUTH_PASSWORD = process.env.API_AUTH_PASSWORD;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
+const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET || '';
 
 /** Lấy IP client (ưu tiên X-Forwarded-For khi đứng sau proxy). */
 function getClientIp(req) {
@@ -484,6 +486,66 @@ app.get('/api/outlook', requireApiAuth, async (req, res) => {
     res.status(500).json({ ok: false, error: error.message, content: null });
   }
 });
+
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, service: 'analytic-chart', time: new Date().toISOString() });
+});
+
+app.post('/api/webhook/trigger', async (req, res) => {
+  const secret = (req.headers['x-webhook-secret'] || req.body?.secret || '').trim();
+  if (N8N_WEBHOOK_SECRET && N8N_WEBHOOK_SECRET.trim() && secret !== N8N_WEBHOOK_SECRET.trim()) {
+    return res.status(401).json({ ok: false, error: 'Webhook secret không hợp lệ' });
+  }
+  const job = String((req.body && req.body.job) || req.query?.job || 'all').toLowerCase().trim();
+  if (!['news', 'summary', 'prices', 'all', ''].includes(job)) {
+    return res.status(400).json({ ok: false, error: 'job phải là news, summary, prices hoặc all' });
+  }
+  const run = () => {
+    if (job === 'news') getNewsContent(true).catch((err) => console.error('Webhook job news:', err));
+    else if (job === 'summary') getSummaryContent(true).catch((err) => console.error('Webhook job summary:', err));
+    else if (job === 'prices') getPricesData(true).catch((err) => console.error('Webhook job prices:', err));
+    else {
+      getNewsContent(true).catch((err) => console.error('Webhook job news:', err));
+      getSummaryContent(true).catch((err) => console.error('Webhook job summary:', err));
+      getPricesData(true).catch((err) => console.error('Webhook job prices:', err));
+    }
+  };
+  setImmediate(run);
+  res.status(202).json({ ok: true, job: job || 'all', message: 'Đã đưa job vào hàng đợi, đang chạy nền' });
+});
+
+app.get('/api/webhook/trigger', (req, res) => {
+  res.status(405).json({
+    ok: false,
+    error: 'Method Not Allowed',
+    message: 'Webhook chỉ chấp nhận POST. Dùng: POST /api/webhook/trigger với body JSON { "job": "news" | "summary" | "prices" | "all" }'
+  });
+});
+
+function registerWebhookJobRoute(job) {
+  app.post('/api/webhook/trigger/' + job, async (req, res) => {
+    const secret = (req.headers['x-webhook-secret'] || req.body?.secret || '').trim();
+    if (N8N_WEBHOOK_SECRET && N8N_WEBHOOK_SECRET.trim() && secret !== N8N_WEBHOOK_SECRET.trim()) {
+      return res.status(401).json({ ok: false, error: 'Webhook secret không hợp lệ' });
+    }
+    const run = () => {
+      if (job === 'news') getNewsContent(true).catch((err) => console.error('Webhook job news:', err));
+      else if (job === 'summary') getSummaryContent(true).catch((err) => console.error('Webhook job summary:', err));
+      else if (job === 'prices') getPricesData(true).catch((err) => console.error('Webhook job prices:', err));
+      else {
+        getNewsContent(true).catch((err) => console.error('Webhook job news:', err));
+        getSummaryContent(true).catch((err) => console.error('Webhook job summary:', err));
+        getPricesData(true).catch((err) => console.error('Webhook job prices:', err));
+      }
+    };
+    setImmediate(run);
+    res.status(202).json({ ok: true, job, message: 'Đã đưa job vào hàng đợi, đang chạy nền' });
+  });
+}
+registerWebhookJobRoute('news');
+registerWebhookJobRoute('summary');
+registerWebhookJobRoute('prices');
+registerWebhookJobRoute('all');
 
 app.post('/api/fengshui', requireApiAuth, async (req, res) => {
   try {

@@ -6,19 +6,19 @@
         "title": "Chính sách lãi suất",
         "items": [
           {
-            "text": "Thị trường đang mất dần hy vọng vào việc cắt giảm lãi suất của Fed khi giá năng lượng và lo ngại về lạm phát gia tăng.",
+            "text": "Thị trường đang mất dần hy vọng về việc Cục Dự trữ Liên bang Mỹ (Fed) sẽ cắt giảm lãi suất do giá năng lượng và lo ngại về lạm phát đang gia tăng.",
             "sourceName": "CNBC",
             "sourceUrl": "https://www.cnbc.com/2026/03/12/markets-hopes-for-fed-interest-rate-cuts-are-rapidly-fading-away.html"
           },
           {
-            "text": "Cuộc họp của Fed vào tháng 1 đã giữ lãi suất ổn định, nhưng áp lực từ các nhà lãnh đạo chính trị đang gia tăng.",
-            "sourceName": "Business Insider",
-            "sourceUrl": "https://www.businessinsider.com/fed-meeting-january-interest-rates-jerome-powell-live-updates-2026-01"
+            "text": "Giá năng lượng sẽ là một yếu tố lớn trong quyết định lãi suất của Fed trong cuộc họp Ủy ban Thị trường Mở sắp tới.",
+            "sourceName": "Marketplace.org",
+            "sourceUrl": "https://www.marketplace.org/story/2026/03/12/how-energy-prices-figure-into-the-feds-interest-rate-decisions"
           },
           {
-            "text": "Fed sẽ công bố quyết định lãi suất tiếp theo vào ngày 28 tháng 1 trong bối cảnh nhiều biến động chính trị và pháp lý.",
-            "sourceName": "CBS News",
-            "sourceUrl": "https://www.cbsnews.com/news/federal-reserve-fomc-meeting-january-28-interest-rate-decision-jerome-powell/"
+            "text": "Fed đã quyết định giữ nguyên lãi suất trong cuộc họp gần đây, cho thấy thị trường lao động đã ổn định và tăng trưởng kinh tế là 'vững chắc'.",
+            "sourceName": "PBS",
+            "sourceUrl": "https://www.pbs.org/newshour/economy/watch-live-fed-chair-powell-holds-news-conference-on-interest-rate-decision"
           }
         ]
       },
@@ -26,17 +26,17 @@
         "title": "Lạm phát",
         "items": [
           {
-            "text": "Chỉ số giá tiêu dùng đã tăng 2.4% trong tháng 2 năm 2026, cao hơn mục tiêu của các nhà hoạch định chính sách.",
+            "text": "Chỉ số giá tiêu dùng đã tăng 2.4% trong tháng 2 năm 2026, vượt mức mục tiêu của các nhà hoạch định chính sách.",
             "sourceName": "CNBC",
             "sourceUrl": "https://www.cnbc.com/2026/03/11/cpi-inflation-february-2026-breakdown.html"
           },
           {
-            "text": "Lạm phát của Mỹ giữ ổn định ở mức 2.4% trong tháng 2, theo dữ liệu mới nhất từ chỉ số giá tiêu dùng.",
-            "sourceName": "Business Insider",
-            "sourceUrl": "https://www.businessinsider.com/cpi-inflation-february-consumer-price-index-2026-3"
+            "text": "Dữ liệu về giá tiêu dùng trong tháng 2 sẽ ảnh hưởng đến quyết định lãi suất của Fed trong tuần tới.",
+            "sourceName": "The New York Times",
+            "sourceUrl": "https://www.nytimes.com/live/2026/03/11/business/inflation-report-cpi"
           },
           {
-            "text": "Giá tiêu dùng của Mỹ đã tăng nhẹ trong tháng 2 khi giá thuê nhà và xăng dầu tiếp tục tăng.",
+            "text": "Giá tiêu dùng của Mỹ đã tăng nhẹ trong tháng 2 khi giá thuê nhà duy trì đà tăng ổn định, tuy nhiên, hộ gia đình đã phải trả nhiều hơn cho xăng dầu.",
             "sourceName": "Reuters",
             "sourceUrl": "https://www.reuters.com/business/us-consumer-prices-increase-expected-february-2026-03-11/"
           }
@@ -46,14 +46,14 @@
         "title": "Xung đột địa chính trị",
         "items": [
           {
-            "text": "Cuộc chiến ở Iran đã làm phức tạp bức tranh lạm phát và ảnh hưởng đến giá năng lượng toàn cầu.",
-            "sourceName": "CNBC",
-            "sourceUrl": "https://www.cnbc.com/2026/03/11/cpi-inflation-february-2026-breakdown.html"
+            "text": "Cuộc chiến của Trump với Iran đang tạo ra cơn bão kinh tế cho người tiêu dùng và Fed, với những rủi ro mới từ giá năng lượng tăng cao.",
+            "sourceName": "NBC News",
+            "sourceUrl": "https://www.nbcnews.com/business/economy/trump-war-iran-consumers-federal-reserve-rcna262936"
           },
           {
-            "text": "OPEC đã xác nhận việc tăng sản lượng dầu của Ả Rập Xê Út trước khi xảy ra xung đột với Iran.",
+            "text": "OPEC+ đã đồng ý tăng sản lượng dầu một cách khiêm tốn trong bối cảnh cuộc chiến Mỹ-Iran làm gián đoạn việc vận chuyển.",
             "sourceName": "Reuters",
-            "sourceUrl": "https://www.reuters.com/business/energy/opec-confirms-big-saudi-oil-production-hike-ahead-iran-war-holds-forecasts-2026-03-11/"
+            "sourceUrl": "https://www.reuters.com/business/energy/opec-debates-oil-output-boost-us-war-iran-disrupts-shipments-2026-03-01/"
           }
         ]
       },
@@ -61,14 +61,14 @@
         "title": "OPEC",
         "items": [
           {
-            "text": "OPEC đã tăng sản lượng dầu thô trong tháng trước do tình hình căng thẳng gia tăng ở Trung Đông.",
-            "sourceName": "Bloomberg.com",
-            "sourceUrl": "https://www.bloomberg.com/news/articles/2026-03-13/opec-oil-output-rose-ahead-of-iran-war-on-saudi-boost-survey-shows"
+            "text": "OPEC đã quyết định tăng sản lượng dầu thêm 206,000 thùng mỗi ngày vào tháng 4, ngay khi cuộc chiến với Iran gây ra sự gián đoạn trong việc vận chuyển.",
+            "sourceName": "Reuters",
+            "sourceUrl": "https://www.reuters.com/business/energy/opec-debates-oil-output-boost-us-war-iran-disrupts-shipments-2026-03-01/"
           },
           {
-            "text": "OPEC Plus đã quyết định tăng sản lượng dầu để đối phó với nguy cơ giá cả tăng cao do xung đột với Iran.",
-            "sourceName": "The New York Times",
-            "sourceUrl": "https://www.nytimes.com/2026/03/01/world/middleeast/opec-plus-oil-production-prices.html"
+            "text": "Các nhà sản xuất OPEC cam kết tăng sản lượng sau khi có các cuộc tấn công ở Iran làm dấy lên lo ngại về giá cả.",
+            "sourceName": "Axios",
+            "sourceUrl": "https://www.axios.com/2026/03/01/iran-strikes-oil-prices-opec"
           }
         ]
       },
@@ -76,12 +76,12 @@
         "title": "Tình hình USD",
         "items": [
           {
-            "text": "Giá trị của đồng đô la Mỹ đang biến động và có thể ảnh hưởng đến danh mục đầu tư của bạn.",
-            "sourceName": "U.S. Bank",
-            "sourceUrl": "https://www.usbank.com/investing/financial-perspectives/market-news/the-recovering-value-of-the-us-dollar.html"
+            "text": "Đồng đô la Mỹ giữ vai trò quan trọng như một đồng tiền dự trữ toàn cầu, được sử dụng rộng rãi trong các giao dịch ngoại hối quốc tế.",
+            "sourceName": "Federal Reserve Bank of St. Louis",
+            "sourceUrl": "https://www.stlouisfed.org/open-vault/2026/feb/us-dollar-role-as-reserve-currency"
           },
           {
-            "text": "Đồng đô la Mỹ giữ vai trò quan trọng trong nền kinh tế toàn cầu và ảnh hưởng đến các giao dịch quốc tế.",
+            "text": "Sự ổn định và sức mạnh của nền kinh tế Mỹ đã hỗ trợ vai trò hàng đầu của đồng đô la trong nền kinh tế toàn cầu.",
             "sourceName": "Federal Reserve Board (.gov)",
             "sourceUrl": "https://www.federalreserve.gov/econres/notes/feds-notes/the-international-role-of-the-u-s-dollar-2025-edition-20250718.html"
           }
@@ -89,5 +89,5 @@
       }
     ]
   },
-  "latest_time": "2026-03-14T14:41:36.685Z"
+  "latest_time": "2026-03-15T02:27:36.666Z"
 }
