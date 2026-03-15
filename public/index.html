@@ -413,45 +413,6 @@
         text-decoration: none;
       }
 
-      .btn-refresh {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: 999px;
-        border: 1px solid rgba(55, 65, 81, 0.9);
-        background: rgba(15, 23, 42, 0.9);
-        color: #94a3b8;
-        font-size: 12px;
-        cursor: pointer;
-        transition: color 0.15s, border-color 0.15s, background 0.15s;
-      }
-
-      .btn-refresh:hover {
-        color: #e2e8f0;
-        border-color: rgba(148, 163, 184, 0.6);
-        background: rgba(30, 41, 59, 0.9);
-      }
-
-      .btn-refresh:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-
-      .btn-refresh.loading .btn-refresh-icon {
-        animation: spin 0.8s linear infinite;
-      }
-
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-
-      .btn-refresh-icon {
-        font-size: 16px;
-        line-height: 1;
-      }
-
       .table-wrap {
         overflow-x: auto;
         margin-top: 8px;
@@ -589,10 +550,6 @@
             </div>
           </div>
           <div class="header-actions">
-            <button type="button" class="btn-refresh" id="btn-refresh" title="Lấy lại dữ liệu mới (bỏ qua cache)">
-              <span class="btn-refresh-icon">↻</span>
-              <span class="btn-refresh-text">Làm mới</span>
-            </button>
             <div class="tag dot">Realtime-friendly</div>
           </div>
         </header>

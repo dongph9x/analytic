@@ -173,7 +173,7 @@
       </nav>
       <main class="main">
         <h1 class="page-title">Tin tức toàn cầu ảnh hưởng giá vàng, xăng, dầu</h1>
-        <p class="page-caption">Tổng hợp tin từ ChatGPT · Mỗi tin kèm nguồn tham khảo. Cấu hình SERPER_API_KEY để có link bài gốc.</p>
+        <p class="page-caption">Tổng hợp tin từ ChatGPT · Mỗi tin kèm nguồn tham khảo. Cấu hình SERPER_API_KEY để có link bài gốc. Cập nhật: <span id="news-last-update">--</span></p>
         <div id="content-root">
           <div class="content-loading">Đang tải...</div>
         </div>
@@ -278,23 +278,34 @@
         }
       }
 
-      async function load(forceRefresh = false) {
-        root.innerHTML = '<div class="content-loading">Đang tải...</div>';
-        if (btn) btn.disabled = true;
+      async function load(forceRefresh = false, silent = false) {
+        if (!silent) {
+          root.innerHTML = '<div class="content-loading">Đang tải...</div>';
+          if (btn) btn.disabled = true;
+        }
         try {
           const url = forceRefresh ? '/api/news?refresh=1' : '/api/news';
           const res = await window.apiFetch(url);
           const ct = (res.headers.get('content-type') || '').toLowerCase();
           if (ct.includes('application/json')) {
             const json = await res.json();
-            if (!json.ok) {
-              root.innerHTML = '<div class="content-error">' + escapeHtml(json.error || 'Lỗi tải tin tức') + '</div>';
-              return;
-            }
-            if (json.content) await renderFromJsonStreaming(json.content);
-            else root.innerHTML = '<div class="content-loading">Chưa có nội dung.</div>';
+          if (!json.ok) {
+            if (!silent) root.innerHTML = '<div class="content-error">' + escapeHtml(json.error || 'Lỗi tải tin tức') + '</div>';
             return;
           }
+          var lastUpdateEl = document.getElementById('news-last-update');
+          if (lastUpdateEl) {
+            if (json.latest_time) {
+              try {
+                var d = new Date(json.latest_time);
+                lastUpdateEl.textContent = isNaN(d.getTime()) ? json.latest_time : d.toLocaleString('vi-VN');
+              } catch (_) { lastUpdateEl.textContent = json.latest_time || '--'; }
+            } else lastUpdateEl.textContent = '--';
+          }
+          if (json.content) await renderFromJsonStreaming(json.content);
+          else if (!silent) root.innerHTML = '<div class="content-loading">Chưa có nội dung.</div>';
+          return;
+        }
           root.innerHTML = '<pre class="stream-raw" id="stream-raw"></pre>';
           const rawEl = document.getElementById('stream-raw');
           const reader = res.body.getReader();
@@ -324,7 +335,7 @@
             root.innerHTML = '<div class="content-error">Không có nội dung. Kiểm tra OPENAI_API_KEY.</div>';
           }
         } catch (e) {
-          root.innerHTML = '<div class="content-error">Không thể kết nối server.</div>';
+          if (!silent) root.innerHTML = '<div class="content-error">Không thể kết nối server.</div>';
         } finally {
           if (btn) btn.disabled = false;
         }
@@ -332,6 +343,17 @@
 
       if (btn) btn.addEventListener('click', () => load(true));
       load(false);
+      try {
+        const es = new EventSource('/api/events', { withCredentials: true });
+        es.onmessage = function (e) {
+          try {
+            const d = JSON.parse(e.data);
+            if (d.event === 'data-updated' && (d.type === 'news' || d.type === 'all')) {
+              load(false, true);
+            }
+          } catch (_) {}
+        };
+      } catch (_) {}
     </script>
   </body>
 </html>

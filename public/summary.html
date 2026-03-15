@@ -176,21 +176,23 @@
         root.innerHTML = '<div class="summary-list">' + items.map(renderItem).join('') + '</div>';
       }
 
-      async function load(forceRefresh = false) {
-        root.innerHTML = '<div class="content-loading">Đang tải...</div>';
-        if (btn) btn.disabled = true;
+      async function load(forceRefresh = false, silent = false) {
+        if (!silent) {
+          root.innerHTML = '<div class="content-loading">Đang tải...</div>';
+          if (btn) btn.disabled = true;
+        }
         try {
           const url = forceRefresh ? '/api/summary?refresh=1' : '/api/summary';
           const res = await window.apiFetch(url);
           const json = await res.json();
           if (!json.ok) {
-            root.innerHTML = '<div class="content-error">' + escapeHtml(json.error || 'Lỗi tải tổng hợp') + '</div>';
+            if (!silent) root.innerHTML = '<div class="content-error">' + escapeHtml(json.error || 'Lỗi tải tổng hợp') + '</div>';
             return;
           }
           if (json.content) renderFromJson(json.content);
-          else root.innerHTML = '<div class="content-loading">Chưa có nội dung tổng hợp.</div>';
+          else if (!silent) root.innerHTML = '<div class="content-loading">Chưa có nội dung tổng hợp.</div>';
         } catch (e) {
-          root.innerHTML = '<div class="content-error">Không thể kết nối server.</div>';
+          if (!silent) root.innerHTML = '<div class="content-error">Không thể kết nối server.</div>';
         } finally {
           if (btn) btn.disabled = false;
         }
@@ -198,6 +200,17 @@
 
       if (btn) btn.addEventListener('click', () => load(true));
       load(false);
+      try {
+        const es = new EventSource('/api/events', { withCredentials: true });
+        es.onmessage = function (e) {
+          try {
+            const d = JSON.parse(e.data);
+            if (d.event === 'data-updated' && (d.type === 'summary' || d.type === 'all')) {
+              load(false, true);
+            }
+          } catch (_) {}
+        };
+      } catch (_) {}
     </script>
   </body>
 </html>

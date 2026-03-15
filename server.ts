@@ -44,6 +44,27 @@ const OUTLOOK_FILE = path.join(dataDir, 'outlook.json');
 const PRICES_FILE = path.join(dataDir, 'prices.json');
 const NEWS_JOB_INTERVAL_MS = 10 * 60 * 1000; // 10 phút
 
+/** Client SSE (Server-Sent Events): khi n8n cập nhật xong, server push event → web refetch và render lại. */
+const sseClients = new Set<Response>();
+
+function broadcastSSE(type: string): void {
+  const payload = JSON.stringify({ event: 'data-updated', type });
+  const line = `data: ${payload}\n\n`;
+  let sent = 0;
+  sseClients.forEach((res) => {
+    try {
+      res.write(line);
+      if (typeof (res as Response & { flush?: () => void }).flush === 'function') {
+        (res as Response & { flush: () => void }).flush();
+      }
+      sent++;
+    } catch {
+      sseClients.delete(res);
+    }
+  });
+  if (sent > 0) console.log('SSE broadcast:', type, '→', sent, 'client(s)');
+}
+
 /** Lấy IP client (ưu tiên X-Forwarded-For khi đứng sau proxy). */
 function getClientIp(req: Request): string {
   const forwarded = req.headers['x-forwarded-for'];
@@ -110,12 +131,13 @@ function writeNewsToFile(result: { ok: boolean; content: unknown }): void {
   }
 }
 
-/** Job nền: gọi ChatGPT lấy tin mới, nếu có dữ liệu thì ghi đè file. */
+/** Job nền: gọi ChatGPT lấy tin mới, nếu có dữ liệu thì ghi đè file và broadcast SSE. */
 async function runNewsJob(): Promise<void> {
   try {
     const result = await getNewsContent(true);
     if (result && result.ok && result.content) {
       writeNewsToFile(result);
+      broadcastSSE('news');
     }
   } catch (err) {
     console.warn('Job tin tức lỗi:', (err as Error).message);
@@ -154,6 +176,7 @@ async function runSummaryJob(): Promise<void> {
     const result = await getSummaryContent(true);
     if (result && result.ok && result.content) {
       writeSummaryToFile(result);
+      broadcastSSE('summary');
     }
   } catch (err) {
     console.warn('Job tổng hợp lỗi:', (err as Error).message);
@@ -192,6 +215,7 @@ async function runOutlookJob(): Promise<void> {
     const result = await getOutlookContent(true);
     if (result && result.ok && result.content) {
       writeOutlookToFile(result);
+      broadcastSSE('outlook');
     }
   } catch (err) {
     console.warn('Job nhận định lỗi:', (err as Error).message);
@@ -473,10 +497,11 @@ async function getPricesData(forceRefresh = false): Promise<PricesData> {
           const wg = await fetchWorldGoldSpot();
           if (wg && (wg.currentBuy != null || wg.currentSell != null)) (chatGPTData as PricesData).worldGold = { currentBuy: wg.currentBuy ?? null, currentSell: wg.currentSell ?? null, changePercent: wg.changePercent ?? null, unit: wg.unit || 'USD/oz', source: wg.source };
         } catch (_) {}
-        cache.data = chatGPTData as PricesData;
-        cache.timestamp = now;
-        writePricesToFile(cache.data);
-        return chatGPTData as PricesData;
+    cache.data = chatGPTData as PricesData;
+    cache.timestamp = now;
+    writePricesToFile(cache.data);
+    broadcastSSE('prices');
+    return chatGPTData as PricesData;
       }
       console.log('ChatGPT unavailable, falling back to crawl...');
     }
@@ -522,6 +547,7 @@ async function getPricesData(forceRefresh = false): Promise<PricesData> {
     cache.data = data;
     cache.timestamp = now;
     writePricesToFile(data);
+    broadcastSSE('prices');
     return data;
   } catch (error) {
     console.error('Error getting prices data:', error);
@@ -694,6 +720,34 @@ app.get('/api/summary', requireApiAuth, async (req: Request, res: Response) => {
 /** Kiểm tra app có sống không (GET, dùng test kết nối từ n8n hoặc browser). */
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ ok: true, service: 'analytic-chart', time: new Date().toISOString() });
+});
+
+/** SSE: client subscribe, khi n8n cập nhật (webhook) server gửi event → client refetch và render lại. Không cần setInterval. */
+app.get('/api/events', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
+  sseClients.add(res);
+  try {
+    res.write(': ok\n\n');
+    if (typeof (res as Response & { flush?: () => void }).flush === 'function') {
+      (res as Response & { flush: () => void }).flush();
+    }
+  } catch (_) {}
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': keepalive\n\n');
+    } catch {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    }
+  }, 30000);
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.delete(res);
+  });
 });
 
 /** Webhook cho n8n / cron: kích hoạt job tin tức, tổng hợp hoặc làm mới cache giá. Trả về ngay, chạy job nền (tránh timeout n8n). Xác thực bằng N8N_WEBHOOK_SECRET. */

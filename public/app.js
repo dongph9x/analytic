@@ -1,5 +1,4 @@
 const CACHE_KEY = 'analytic_prices';
-const BACKGROUND_INTERVAL_MS = 10 * 60 * 1000; // 10 phút
 
 let rawData = null;
 
@@ -87,7 +86,7 @@ function renderTable() {
   if (!el) return;
 
   if (!rawData || !rawData.gold || !rawData.fuelRON95 || !rawData.fuelDO) {
-    const msg = rawData && rawData.error ? rawData.error : 'Không có dữ liệu. Kiểm tra kết nối.';
+    const msg = rawData && rawData.error ? rawData.error : 'Không có dữ liệu. Dữ liệu được n8n cập nhật theo lịch.';
     el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">' + msg + '</td></tr>';
     if (lastUpdateEl) lastUpdateEl.textContent = '--';
     return;
@@ -300,32 +299,28 @@ async function init() {
     await loadData(false);
   } catch (err) {
     console.error(err);
-    if (el && !rawData) el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Không thể tải dữ liệu. Thử Làm mới hoặc kiểm tra server.</td></tr>';
+    if (el && !rawData) el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Không thể tải dữ liệu. Dữ liệu được n8n cập nhật theo lịch.</td></tr>';
   }
 
-  const btn = document.getElementById('btn-refresh');
-  if (btn) {
-    btn.addEventListener('click', async () => {
-      if (btn.disabled) return;
-      btn.disabled = true;
-      btn.classList.add('loading');
-      if (el) el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:16px;">Đang tải...</td></tr>';
+  // SSE: khi n8n cập nhật xong, server push event → refetch và render lại (không dùng setInterval).
+  try {
+    const es = new EventSource('/api/events', { withCredentials: true });
+    es.onmessage = function (e) {
       try {
-        await loadData(true, false, { resolveAfterFirst: true });
-      } catch (err) {
-        console.error(err);
-        if (el) el.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">Không thể tải lại dữ liệu.</td></tr>';
-      } finally {
-        btn.disabled = false;
-        btn.classList.remove('loading');
-      }
-    });
-  }
-
-  // Job nền: cứ 10 phút fetch lại data, cập nhật bảng và gửi summary lên Discord.
-  setInterval(() => {
-    loadData(false, true).catch((err) => console.warn('Background refresh failed:', err));
-  }, BACKGROUND_INTERVAL_MS);
+        const d = JSON.parse(e.data);
+        if (d.event === 'data-updated' && (d.type === 'prices' || d.type === 'all')) {
+          loadData(false, true).then(function () {
+            if (typeof renderTable === 'function') renderTable();
+          }).catch(function (err) {
+            console.warn('SSE refetch failed:', err);
+          });
+        }
+      } catch (_) {}
+    };
+    es.onerror = function () {
+      es.close();
+    };
+  } catch (_) {}
 }
 
 var TABLE_BLOCK_IDS = ['table-block-gold-fuel', 'table-block-interest', 'table-block-bank-rates', 'table-block-bank-loans'];
