@@ -99,6 +99,7 @@ function renderTable() {
   }
 
   const goldCompare = getChangeAndPrev(rawData.gold.values);
+  const gold980Compare = rawData.gold980 && rawData.gold980.values && rawData.gold980.values.length > 0 ? getChangeAndPrev(rawData.gold980.values) : { change: null, prevValue: null };
   const ron95Compare = getChangeAndPrev(rawData.fuelRON95.values);
   const doCompare = getChangeAndPrev(rawData.fuelDO.values);
 
@@ -118,6 +119,17 @@ function renderTable() {
       prevValue: goldCompare.prevValue,
       currentValue: rawData.gold.current
     },
+    rawData.gold980
+      ? {
+          name: 'Vàng 980',
+          mua: rawData.gold980.current,
+          ban: rawData.gold980.currentSell,
+          unit: rawData.gold980.unit,
+          change: gold980Compare.change,
+          prevValue: gold980Compare.prevValue,
+          currentValue: rawData.gold980.current
+        }
+      : null,
     {
       name: 'Vàng thế giới (Spot)',
       mua: wg && wg.currentBuy != null ? wg.currentBuy : null,
@@ -148,6 +160,7 @@ function renderTable() {
   ];
 
   el.innerHTML = rows
+    .filter(function (r) { return r != null; })
     .map(
       (r) => `
     <tr>

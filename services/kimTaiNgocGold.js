@@ -19,12 +19,12 @@ function parseVnd(text) {
 }
 
 /**
- * Crawl bảng giá vàng trong .gold-card-content. Lấy dòng 9999 (vàng 9999).
+ * Crawl bảng giá vàng trong .gold-card-content. Lấy vàng 9999 và vàng 980.
  * Giá trả về: triệu VND/lượng (VND/chỉ * 10 / 1e6).
- * @returns {Promise<{ buy: number|null, sell: number|null }>}
+ * @returns {Promise<{ buy: number|null, sell: number|null, buy980: number|null, sell980: number|null }>}
  */
 async function fetchKimTaiNgocGold() {
-  const result = { buy: null, sell: null };
+  const result = { buy: null, sell: null, buy980: null, sell980: null };
 
   try {
     const res = await axios.get(KIM_TAI_NGOC_URL, {
@@ -42,7 +42,7 @@ async function fetchKimTaiNgocGold() {
       const tables = $('table');
       tables.each((_, tbl) => {
         const text = $(tbl).text();
-        if (text.includes('9999') && text.includes('Mua vào') && text.includes('Bán ra')) {
+        if ((text.includes('9999') || text.includes('980')) && text.includes('Mua vào') && text.includes('Bán ra')) {
           parseTable($(tbl), $, result);
           return false;
         }
@@ -67,14 +67,17 @@ function parseTable(table, $, result) {
     const cells = $(tr).find('td, th');
     if (cells.length < 3) return;
     const typeCell = $(cells[0]).text().trim().replace(/\s/g, '');
-    if (!/9999|24k/i.test(typeCell) && typeCell !== '9999') return;
     const buyVnd = parseVnd($(cells[1]).text());
     const sellVnd = parseVnd($(cells[2]).text());
-    if (buyVnd != null && buyVnd > 0) {
-      result.buy = parseFloat(((buyVnd * 10) / 1e6).toFixed(2));
+    const toLuoong = (vnd) => (vnd != null && vnd > 0 ? parseFloat(((vnd * 10) / 1e6).toFixed(2)) : null);
+    if (/9999|24k/i.test(typeCell) || typeCell === '9999') {
+      if (buyVnd != null && buyVnd > 0) result.buy = toLuoong(buyVnd);
+      if (sellVnd != null && sellVnd > 0) result.sell = toLuoong(sellVnd);
+      return;
     }
-    if (sellVnd != null && sellVnd > 0) {
-      result.sell = parseFloat(((sellVnd * 10) / 1e6).toFixed(2));
+    if (/980|98%|98\b/i.test(typeCell) && !/9999/i.test(typeCell)) {
+      if (buyVnd != null && buyVnd > 0) result.buy980 = toLuoong(buyVnd);
+      if (sellVnd != null && sellVnd > 0) result.sell980 = toLuoong(sellVnd);
     }
   });
 }

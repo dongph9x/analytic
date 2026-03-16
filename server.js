@@ -228,13 +228,15 @@ async function getCurrentPricesFromCrawl() {
   const doPrice = pvoilData?.do > minFuelValid ? pvoilData.do : 21.5;
   const goldBuy = kimTaiNgocGold?.buy ?? null;
   const goldSell = kimTaiNgocGold?.sell ?? null;
+  const gold980Buy = kimTaiNgocGold?.buy980 ?? null;
+  const gold980Sell = kimTaiNgocGold?.sell980 ?? null;
 
   let interestRates = null;
   try {
     interestRates = await getInterestRates();
   } catch (_) {}
 
-  return {
+  const out = {
     labels,
     gold: {
       label: 'Vàng nhẫn trơn 9999 (triệu VND/lượng)',
@@ -259,6 +261,16 @@ async function getCurrentPricesFromCrawl() {
     lastUpdate: new Date().toISOString(),
     source: 'crawl'
   };
+  if (gold980Buy != null || gold980Sell != null) {
+    out.gold980 = {
+      label: 'Vàng 980 (triệu VND/lượng)',
+      unit: 'triệu VND/lượng',
+      values: build30Values(gold980Buy, 76),
+      current: gold980Buy,
+      currentSell: gold980Sell
+    };
+  }
+  return out;
 }
 
 /**

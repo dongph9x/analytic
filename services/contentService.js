@@ -9,6 +9,13 @@ const axios = require('axios');
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const SERPER_API_KEY = process.env.SERPER_API_KEY;
 
+/** System role cho từng loại nội dung – đảm bảo ChatGPT đúng vai khi gọi API. */
+const NEWS_SYSTEM_ROLE = 'Bạn là chuyên gia thị trường hàng hóa và tin tức tài chính. Nhiệm vụ: tổng hợp tin ảnh hưởng giá vàng, xăng, dầu. Bạn chỉ trả lời bằng JSON hợp lệ.';
+const NEWS_STREAM_SYSTEM_ROLE = 'Bạn là chuyên gia thị trường hàng hóa và tin tức tài chính. Tổng hợp tin ảnh hưởng giá vàng, xăng, dầu. Bạn chỉ trả lời bằng markdown, không giải thích thêm.';
+const OUTLOOK_SYSTEM_ROLE = 'Bạn là chuyên gia kinh tế, tài chính và chính trị. Nhiệm vụ: đưa ra nhận định xu hướng giá vàng, xăng, dầu dựa trên phân tích kinh tế vĩ mô, thị trường và địa chính trị. Bạn chỉ trả lời bằng JSON hợp lệ.';
+const OUTLOOK_STREAM_SYSTEM_ROLE = 'Bạn là chuyên gia kinh tế, tài chính và chính trị. Đưa ra nhận định xu hướng vàng, xăng, dầu. Bạn chỉ trả lời bằng markdown, không giải thích thêm.';
+const SUMMARY_SYSTEM_ROLE = 'Bạn là chuyên gia biên tập tin kinh tế và chính trị (Việt Nam và thế giới). Nhiệm vụ: tổng hợp tin nổi bật trong ngày từ nguồn chính thống. Bạn chỉ trả lời bằng JSON hợp lệ.';
+
 /** Ngày hiện tại theo múi giờ Việt Nam (UTC+7) để lọc tin "trong ngày". */
 function getVietnamTodayContext() {
   const now = new Date();
@@ -18,10 +25,49 @@ function getVietnamTodayContext() {
     month: '2-digit',
     year: 'numeric'
   });
+  const parts = dateStr.split('/');
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const year = parseInt(parts[2], 10);
+  const startOfDayVnMs = Date.UTC(year, month - 1, day) - 7 * 60 * 60 * 1000;
+  const todayYMD = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   return {
     dateStr,
+    todayYMD,
+    startOfDayVnMs,
     instruction: `Ngày hiện tại theo múi giờ Việt Nam (UTC+7) là ${dateStr}. Chỉ chọn tin đăng hoặc xảy ra TRONG NGÀY NÀY (từ 0h00 đến 24h00 giờ Việt Nam). KHÔNG đưa tin từ ngày hôm trước.`
   };
+}
+
+/** Parse ngày từ Serper (vd: "14 Mar 2026", "1 day ago", "5 hours ago"). Trả về timestamp (ms) hoặc null. */
+function parseSerperDate(dateStr, nowMs = Date.now()) {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const s = dateStr.trim().toLowerCase();
+  const hourMs = 60 * 60 * 1000;
+  const dayMs = 24 * hourMs;
+  const matchAgo = s.match(/^(\d+)\s*(minute|minutes|hour|hours|day|days|week|weeks)\s+ago$/);
+  if (matchAgo) {
+    const n = parseInt(matchAgo[1], 10);
+    const unit = matchAgo[2];
+    if (unit === 'minute' || unit === 'minutes') return nowMs - n * 60 * 1000;
+    if (unit === 'hour' || unit === 'hours') return nowMs - n * hourMs;
+    if (unit === 'day' || unit === 'days') return nowMs - n * dayMs;
+    if (unit === 'week' || unit === 'weeks') return nowMs - n * 7 * dayMs;
+  }
+  const d = new Date(dateStr);
+  if (!Number.isNaN(d.getTime())) return d.getTime();
+  return null;
+}
+
+/** Lọc bài tổng hợp: chỉ giữ bài đăng từ ngày hôm nay (VN) trở đi. Bài không có ngày hoặc không parse được vẫn giữ. */
+function filterSummaryArticlesByDate(articles) {
+  const { startOfDayVnMs } = getVietnamTodayContext();
+  const nowMs = Date.now();
+  return articles.filter((a) => {
+    const ts = parseSerperDate(a.date, nowMs);
+    if (ts == null) return true;
+    return ts >= startOfDayVnMs;
+  });
 }
 
 /** Gọi Serper News API, trả về [{ title, link, snippet, source, date? }]. */
@@ -129,14 +175,16 @@ Trả về ĐÚNG MỘT JSON với cấu trúc:
 Yêu cầu: MỖI item phải có sourceName và sourceUrl là MỘT trong các bài đã cho (copy đúng link). Không bịa link. Tối đa 5-7 nhóm, mỗi nhóm 2-4 mục. Ngôn ngữ nội dung: tiếng Việt. Chỉ trả về JSON thuần, không markdown, không \`\`\`json.`;
 }
 
-/** Tin tổng hợp: kinh tế, chính trị trong ngày từ các trang chính thống. Serper trả về [{ title, link, snippet, source }]. */
+/** Tin tổng hợp: kinh tế, chính trị trong ngày từ các trang chính thống. Serper trả về [{ title, link, snippet, source, date }]. */
 async function fetchSummarySources() {
+  const { dateStr } = getVietnamTodayContext();
   const queries = [
-    'kinh tế Việt Nam hôm nay',
+    `kinh tế Việt Nam ${dateStr}`,
+    `kinh tế Việt Nam hôm nay ${dateStr}`,
     'chính trị thế giới tin mới',
     'Fed lãi suất Mỹ',
     'lạm phát kinh tế',
-    'VN economy news today',
+    `VN economy news ${dateStr}`,
     'world politics news today'
   ];
   const seen = new Set();
@@ -150,14 +198,15 @@ async function fetchSummarySources() {
       }
     }
   }
-  return all;
+  return filterSummaryArticlesByDate(all);
 }
 
 function buildSummaryPromptNoSources() {
-  const { instruction } = getVietnamTodayContext();
+  const { dateStr, instruction } = getVietnamTodayContext();
   return `Bạn là biên tập viên tin tức. Tổng hợp tin nổi bật MỚI NHẤT về kinh tế và chính trị (Việt Nam và thế giới) từ các nguồn chính thống (Reuters, Bloomberg, VnExpress, Thanh Niên, BBC, AFP...).
 
 QUAN TRỌNG - THỜI GIAN: ${instruction}
+HÔM NAY LÀ ${dateStr} (múi giờ Việt Nam). CHỈ đưa tin có ngày đăng đúng ngày ${dateStr}. Tin có ngày đăng trước ${dateStr} PHẢI LOẠI BỎ, không được đưa vào.
 
 Trả về ĐÚNG MỘT JSON:
 {
@@ -174,7 +223,7 @@ Yêu cầu: 8-15 mục, mỗi mục có title, summary, sourceName. Chỉ tin tr
 }
 
 function buildSummaryPromptWithSources(articles) {
-  const { instruction } = getVietnamTodayContext();
+  const { dateStr, instruction } = getVietnamTodayContext();
   const block = articles
     .map(
       (a, i) => {
@@ -186,7 +235,7 @@ function buildSummaryPromptWithSources(articles) {
   return `Bạn là biên tập viên tin tức. Dưới đây là các bài báo/tin đã tìm được (từ Google News). Nhiệm vụ: chọn ra 8-15 tin NỔI BẬT NHẤT về kinh tế và chính trị (VN và thế giới), tóm tắt ngắn và BẮT BUỘC gắn đúng link từ danh sách.
 
 QUAN TRỌNG - THỜI GIAN: ${instruction}
-Chỉ chọn các bài đăng trong ngày này (theo giờ VN). Nếu bài có thông tin ngày đăng và là ngày hôm trước thì BỎ QUA, không đưa vào danh sách.
+HÔM NAY LÀ ${dateStr} (múi giờ Việt Nam). CHỈ chọn bài có ngày đăng là ngày ${dateStr}. Bài có ngày đăng trước ${dateStr} PHẢI BỎ QUA, không đưa vào danh sách.
 
 Các bài đã tìm được:
 ${block}
@@ -264,7 +313,7 @@ async function getNewsContent(forceRefresh = false) {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Bạn chỉ trả lời bằng JSON hợp lệ.' },
+        { role: 'system', content: NEWS_SYSTEM_ROLE },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },
@@ -296,7 +345,7 @@ async function getOutlookContent(forceRefresh = false) {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Bạn chỉ trả lời bằng JSON hợp lệ.' },
+        { role: 'system', content: OUTLOOK_SYSTEM_ROLE },
         { role: 'user', content: OUTLOOK_PROMPT }
       ],
       response_format: { type: 'json_object' },
@@ -329,7 +378,7 @@ async function streamNewsToResponse(res) {
     const stream = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Bạn chỉ trả lời bằng markdown, không giải thích thêm.' },
+        { role: 'system', content: NEWS_STREAM_SYSTEM_ROLE },
         { role: 'user', content: NEWS_PROMPT_STREAM }
       ],
       stream: true,
@@ -360,7 +409,7 @@ async function streamOutlookToResponse(res) {
     const stream = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Bạn chỉ trả lời bằng markdown, không giải thích thêm.' },
+        { role: 'system', content: OUTLOOK_STREAM_SYSTEM_ROLE },
         { role: 'user', content: OUTLOOK_PROMPT_STREAM }
       ],
       stream: true,
@@ -395,7 +444,7 @@ async function getSummaryContent(forceRefresh = false) {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Bạn chỉ trả lời bằng JSON hợp lệ.' },
+        { role: 'system', content: SUMMARY_SYSTEM_ROLE },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },

@@ -269,6 +269,7 @@ function notifyDiscord(message: string): void {
 interface PricesData {
   labels: string[];
   gold: { label: string; unit: string; values: number[]; current: number | null; currentSell?: number | null };
+  gold980?: { label: string; unit: string; values: number[]; current: number | null; currentSell?: number | null };
   fuelRON95: { label: string; unit: string; values: number[]; current: number | null };
   fuelDO: { label: string; unit: string; values: number[]; current: number | null };
   worldGold?: { currentBuy: number | null; currentSell: number | null; changePercent?: number | null; unit: string; source?: string };
@@ -424,11 +425,13 @@ async function getCurrentPricesFromCrawl(): Promise<PricesData> {
   const doPrice = (pvoilData?.do ?? 0) > minFuelValid ? (pvoilData?.do ?? 21.5) : 21.5;
   const goldBuy = kimTaiNgocGold?.buy ?? null;
   const goldSell = kimTaiNgocGold?.sell ?? null;
+  const gold980Buy = kimTaiNgocGold?.buy980 ?? null;
+  const gold980Sell = kimTaiNgocGold?.sell980 ?? null;
   let interestRates: unknown = null;
   try {
     interestRates = await getInterestRates();
   } catch (_) {}
-  return {
+  const out: PricesData = {
     labels,
     gold: {
       label: 'Vàng nhẫn trơn 9999 (triệu VND/lượng)',
@@ -454,6 +457,16 @@ async function getCurrentPricesFromCrawl(): Promise<PricesData> {
     lastUpdate: new Date().toISOString(),
     source: 'crawl'
   };
+  if (gold980Buy != null || gold980Sell != null) {
+    out.gold980 = {
+      label: 'Vàng 980 (triệu VND/lượng)',
+      unit: 'triệu VND/lượng',
+      values: build30Values(gold980Buy, 76),
+      current: gold980Buy,
+      currentSell: gold980Sell
+    };
+  }
+  return out;
 }
 
 async function getPricesData(forceRefresh = false): Promise<PricesData> {
@@ -496,6 +509,18 @@ async function getPricesData(forceRefresh = false): Promise<PricesData> {
         try {
           const wg = await fetchWorldGoldSpot();
           if (wg && (wg.currentBuy != null || wg.currentSell != null)) (chatGPTData as PricesData).worldGold = { currentBuy: wg.currentBuy ?? null, currentSell: wg.currentSell ?? null, changePercent: wg.changePercent ?? null, unit: wg.unit || 'USD/oz', source: wg.source };
+        } catch (_) {}
+        try {
+          const ktng = await fetchKimTaiNgocGold();
+          if (ktng?.buy980 != null || ktng?.sell980 != null) {
+            (chatGPTData as PricesData).gold980 = {
+              label: 'Vàng 980 (triệu VND/lượng)',
+              unit: 'triệu VND/lượng',
+              values: build30Values(ktng.buy980 ?? null, 76),
+              current: ktng.buy980 ?? null,
+              currentSell: ktng.sell980 ?? null
+            };
+          }
         } catch (_) {}
     cache.data = chatGPTData as PricesData;
     cache.timestamp = now;

@@ -18,6 +18,8 @@ function parseVnd(text: string | null | undefined): number | null {
 export interface KimTaiNgocGoldResult {
   buy: number | null;
   sell: number | null;
+  buy980?: number | null;
+  sell980?: number | null;
 }
 
 function parseTable(
@@ -26,24 +28,28 @@ function parseTable(
   result: KimTaiNgocGoldResult
 ): void {
   const rows = table.find('tr');
+  const toLuong = (vnd: number | null) =>
+    vnd != null && vnd > 0 ? parseFloat(((vnd * 10) / 1e6).toFixed(2)) : null;
   rows.each((_, tr) => {
     const cells = $(tr).find('td, th');
     if (cells.length < 3) return;
     const typeCell = $(cells[0]).text().trim().replace(/\s/g, '');
-    if (!/9999|24k/i.test(typeCell) && typeCell !== '9999') return;
     const buyVnd = parseVnd($(cells[1]).text());
     const sellVnd = parseVnd($(cells[2]).text());
-    if (buyVnd != null && buyVnd > 0) {
-      result.buy = parseFloat(((buyVnd * 10) / 1e6).toFixed(2));
+    if (/9999|24k/i.test(typeCell) || typeCell === '9999') {
+      if (buyVnd != null && buyVnd > 0) result.buy = toLuong(buyVnd);
+      if (sellVnd != null && sellVnd > 0) result.sell = toLuong(sellVnd);
+      return;
     }
-    if (sellVnd != null && sellVnd > 0) {
-      result.sell = parseFloat(((sellVnd * 10) / 1e6).toFixed(2));
+    if (/980|98%|98\b/i.test(typeCell) && !/9999/i.test(typeCell)) {
+      if (buyVnd != null && buyVnd > 0) result.buy980 = toLuong(buyVnd);
+      if (sellVnd != null && sellVnd > 0) result.sell980 = toLuong(sellVnd);
     }
   });
 }
 
 export async function fetchKimTaiNgocGold(): Promise<KimTaiNgocGoldResult> {
-  const result: KimTaiNgocGoldResult = { buy: null, sell: null };
+  const result: KimTaiNgocGoldResult = { buy: null, sell: null, buy980: null, sell980: null };
 
   try {
     const res = await axios.get<string>(KIM_TAI_NGOC_URL, {
@@ -61,7 +67,7 @@ export async function fetchKimTaiNgocGold(): Promise<KimTaiNgocGoldResult> {
       const tables = $('table');
       tables.each((_, tbl) => {
         const text = $(tbl).text();
-        if (text.includes('9999') && text.includes('Mua vào') && text.includes('Bán ra')) {
+        if ((text.includes('9999') || text.includes('980')) && text.includes('Mua vào') && text.includes('Bán ra')) {
           parseTable($(tbl), $, result);
           return false;
         }

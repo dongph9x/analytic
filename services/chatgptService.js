@@ -8,6 +8,9 @@ const { fetchKimTaiNgocGold } = require('./kimTaiNgocGold');
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+/** System role: chuyên gia thị trường vàng, xăng dầu Việt Nam – dùng khi tổng hợp số liệu chart. */
+const CHART_SYSTEM_ROLE = 'Bạn là chuyên gia thị trường hàng hóa Việt Nam (vàng, xăng dầu). Nhiệm vụ: trích xuất và tổng hợp số liệu giá từ nguồn chính thống. Bạn chỉ trả lời bằng JSON hợp lệ, không thêm text nào khác. Các số phải là số thực (float), không chuỗi.';
+
 const DAYS_COUNT = 30;
 
 function getLast30DayLabels() {
@@ -89,11 +92,7 @@ async function getChartDataFromChatGPT() {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        {
-          role: 'system',
-          content:
-            'Bạn chỉ trả lời bằng JSON hợp lệ, không thêm text nào khác. Các số phải là số thực (float), không chuỗi.'
-        },
+        { role: 'system', content: CHART_SYSTEM_ROLE },
         { role: 'user', content: buildChartDataPrompt(pvoilData, kimTaiNgocGold) }
       ],
       response_format: { type: 'json_object' },
